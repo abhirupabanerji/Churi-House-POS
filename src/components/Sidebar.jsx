@@ -5,8 +5,8 @@ import { useState } from "react";
 import {
   LayoutDashboard, ShoppingCart, ChefHat, ClipboardList,
   UtensilsCrossed, Gift, Tag, TableIcon, CalendarCheck,
-  Globe, QrCode, Truck, Package, SlidersHorizontal,
-  Building2, ShoppingBag, BarChart3, TrendingUp, Wallet,
+  Globe, QrCode, Package,
+  Building2, ShoppingBag, BarChart3, Wallet,
   CreditCard, FileText, RefreshCw, Users, Clock,
   Store, FileSearch, Plug, Download, UserCog, Shield,
   Settings, LogOut, ChevronDown, Megaphone, DollarSign,

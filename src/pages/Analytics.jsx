@@ -1,5 +1,4 @@
-import { TrendingUp } from "lucide-react";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, LineChart, Line } from "recharts";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
 
 const data = Array.from({ length: 30 }, (_, i) => ({ day: `Day ${i + 1}`, revenue: Math.floor(Math.random() * 80000) + 30000, orders: Math.floor(Math.random() * 100) + 50 }));
 const tt = { background: "rgba(20,20,20,0.95)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, color: "#fff", fontSize: 12 };

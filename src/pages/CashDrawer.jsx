@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CreditCard, Plus, X } from "lucide-react";
+import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,8 +26,18 @@ export default function CashDrawer() {
   const cashOut = Math.abs(txns.filter(t => t.amount < 0).reduce((s,t) => s+t.amount, 0));
   const current = openBalance + cashIn - cashOut;
 
+  const validateCashOut = () => {
+    const next = {};
+    positiveNumber(next, "amount", form.amount);
+    required(next, "reason", form.reason);
+    required(next, "by", form.by);
+    setErrors(next);
+    return Object.keys(next).length === 0;
+  };
+
   const doCashOut = () => {
-    setTxns(prev => [...prev, { type: `Cash Out — ${form.reason}`, amount: -form.amount, time: new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}), by: form.by }]);
+    if (!validateCashOut()) return;
+    setTxns(prev => [...prev, { type: `Cash Out � ${form.reason}`, amount: -form.amount, time: new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}), by: form.by }]);
     setShowCashOut(false); setForm({ amount: 0, reason: "", by: "Manager" });
   };
   const closeDrawer = () => { setClosed(true); setShowClose(false); };

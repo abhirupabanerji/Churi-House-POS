@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Users, UserPlus, Pencil, Trash2, X, KeyRound } from "lucide-react";
+import { UserPlus, Pencil, Trash2, X, KeyRound } from "lucide-react";
 import { logAudit } from "@/lib/auditLog";
 import { softDelete } from "@/lib/softDelete";
 import { toast } from "sonner";

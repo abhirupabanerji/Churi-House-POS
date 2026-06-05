@@ -156,7 +156,7 @@ export default function Dashboard() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
+          <h1 className="text-2xl font-bold text-foreground">Admin Dashboard</h1>
           <p className="text-sm text-muted-foreground">Welcome back — here's what's happening today</p>
         </div>
         <div className="flex items-center gap-2 px-3 py-1.5 glass rounded-xl">
