@@ -3,13 +3,20 @@ import { Building2, TableIcon, Bell, AlertTriangle, CheckCircle, Info, IndianRup
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
 import StatCard from "../components/dashboard/StatCard";
+import { useTheme } from "@/lib/ThemeContext";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   BarChart, Bar, PieChart, Pie, Cell, LineChart, Line
 } from "recharts";
 import { Tooltip as ShadTooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
-const CHART_TOOLTIP_STYLE = { background: "rgba(20,20,20,0.95)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, color: "#fff", fontSize: 12 };
+const CHART_TOOLTIP_STYLE = {
+  background: "hsl(var(--card))",
+  border: "1px solid hsl(var(--border))",
+  color: "hsl(var(--foreground))",
+  borderRadius: 12,
+  fontSize: 12,
+};
 
 const ORDER_TYPE_COLORS = {
   dine_in: "#ea580c", takeaway: "#f97316", delivery: "#fb923c",
@@ -26,6 +33,7 @@ const statusColors = {
 };
 
 export default function Dashboard() {
+  const { isDark } = useTheme();
   const navigate = useNavigate();
   const [allOrders, setAllOrders] = useState([]);
   const [branches, setBranches] = useState([]);
@@ -99,6 +107,14 @@ export default function Dashboard() {
     });
     return Object.values(map).map(d => ({ ...d, revenue: +(d.revenue / 100000).toFixed(2) }));
   }, [allOrders]);
+
+const GRID_COLOR = isDark
+  ? "rgba(255,255,255,0.15)"
+  : "rgba(0,0,0,0.15)";
+
+const AXIS_COLOR = isDark
+  ? "rgba(255,255,255,0.8)"
+  : "rgba(0,0,0,0.8)";
 
   // Top selling items
   const topItemsData = useMemo(() => {
@@ -231,9 +247,9 @@ export default function Dashboard() {
                   <stop offset="100%" stopColor="#ea580c" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-              <XAxis dataKey="name" stroke="rgba(255,255,255,0.3)" fontSize={11} />
-              <YAxis stroke="rgba(255,255,255,0.3)" fontSize={11} tickFormatter={v => `₹${(v/1000).toFixed(0)}k`} />
+              <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} />
+              <XAxis dataKey="name" stroke={AXIS_COLOR} fontSize={11} />
+              <YAxis stroke={AXIS_COLOR} fontSize={11} tickFormatter={v => `₹${(v/1000).toFixed(0)}k`} />
               <Tooltip contentStyle={CHART_TOOLTIP_STYLE} formatter={v => [`₹${v.toLocaleString()}`, "Revenue"]} />
               <Area type="monotone" dataKey="revenue" stroke="#ea580c" fill="url(#revGrad)" strokeWidth={2} />
             </AreaChart>
@@ -273,9 +289,9 @@ export default function Dashboard() {
           <h3 className="text-sm font-semibold text-foreground mb-4">Hourly Orders (Today)</h3>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={hourlyData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-              <XAxis dataKey="hour" stroke="rgba(255,255,255,0.3)" fontSize={10} />
-              <YAxis stroke="rgba(255,255,255,0.3)" fontSize={10} />
+              <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} />
+              <XAxis dataKey="hour" stroke={AXIS_COLOR} fontSize={10} />
+              <YAxis stroke={AXIS_COLOR} fontSize={10} />
               <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
               <Bar dataKey="orders" fill="#ea580c" radius={[4, 4, 0, 0]} />
             </BarChart>
@@ -289,9 +305,9 @@ export default function Dashboard() {
           ) : (
             <ResponsiveContainer width="100%" height={200}>
               <BarChart data={topItemsData} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis type="number" stroke="rgba(255,255,255,0.3)" fontSize={10} />
-                <YAxis type="category" dataKey="name" stroke="rgba(255,255,255,0.3)" fontSize={10} width={90} />
+                <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} />
+                <XAxis type="number" stroke={AXIS_COLOR} fontSize={10} />
+                <YAxis type="category" dataKey="name" stroke={AXIS_COLOR} fontSize={10} width={90} />
                 <Tooltip contentStyle={CHART_TOOLTIP_STYLE} formatter={v => [v, "Units Sold"]} />
                 <Bar dataKey="sold" fill="#f97316" radius={[0, 4, 4, 0]} />
               </BarChart>
@@ -306,9 +322,9 @@ export default function Dashboard() {
           <h3 className="text-sm font-semibold text-foreground mb-4">Monthly Revenue Trend (₹ Lakhs)</h3>
           <ResponsiveContainer width="100%" height={200}>
             <LineChart data={monthlyData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-              <XAxis dataKey="month" stroke="rgba(255,255,255,0.3)" fontSize={11} />
-              <YAxis stroke="rgba(255,255,255,0.3)" fontSize={11} tickFormatter={v => `₹${v}L`} />
+              <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} />
+              <XAxis dataKey="month" stroke={AXIS_COLOR} fontSize={11} />
+              <YAxis stroke={AXIS_COLOR} fontSize={11} tickFormatter={v => `₹${v}L`} />
               <Tooltip contentStyle={CHART_TOOLTIP_STYLE} formatter={v => [`₹${v}L`, "Revenue"]} />
               <Line type="monotone" dataKey="revenue" stroke="#ea580c" strokeWidth={2.5} dot={{ fill: "#ea580c", r: 4 }} activeDot={{ r: 6 }} />
             </LineChart>
@@ -322,9 +338,9 @@ export default function Dashboard() {
           ) : (
             <ResponsiveContainer width="100%" height={200}>
               <BarChart data={channelRevenueData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis dataKey="channel" stroke="rgba(255,255,255,0.3)" fontSize={10} />
-                <YAxis stroke="rgba(255,255,255,0.3)" fontSize={10} tickFormatter={v => `₹${(v/1000).toFixed(0)}k`} />
+                <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} />
+                <XAxis dataKey="channel" stroke={AXIS_COLOR} fontSize={10} />
+                <YAxis stroke={AXIS_COLOR} fontSize={10} tickFormatter={v => `₹${(v/1000).toFixed(0)}k`} />
                 <Tooltip contentStyle={CHART_TOOLTIP_STYLE} formatter={v => [`₹${v.toLocaleString()}`, "Revenue"]} />
                 <Bar dataKey="revenue" fill="#ea580c" radius={[4, 4, 0, 0]} />
               </BarChart>
