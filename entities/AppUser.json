@@ -1,0 +1,59 @@
+{
+  "name": "AppUser",
+  "type": "object",
+  "properties": {
+    "full_name": {
+      "type": "string",
+      "title": "Full Name"
+    },
+    "username": {
+      "type": "string",
+      "title": "Username"
+    },
+    "email": {
+      "type": "string",
+      "title": "Email"
+    },
+    "password": {
+      "type": "string",
+      "title": "Password"
+    },
+    "role": {
+      "type": "string",
+      "title": "Role",
+      "enum": [
+        "super_admin",
+        "admin",
+        "manager",
+        "cashier",
+        "staff"
+      ]
+    },
+    "branch_id": {
+      "type": "string",
+      "title": "Branch"
+    },
+    "franchise": {
+      "type": "string",
+      "title": "Franchise"
+    },
+    "status": {
+      "type": "string",
+      "title": "Status",
+      "enum": [
+        "active",
+        "inactive"
+      ]
+    },
+    "last_login": {
+      "type": "string",
+      "title": "Last Login"
+    }
+  },
+  "required": [
+    "username",
+    "password",
+    "role",
+    "status"
+  ]
+}

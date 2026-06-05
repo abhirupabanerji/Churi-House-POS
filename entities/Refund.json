@@ -1,0 +1,51 @@
+{
+  "name": "Refund",
+  "type": "object",
+  "properties": {
+    "order_number": {
+      "type": "string",
+      "title": "Order Number"
+    },
+    "customer_name": {
+      "type": "string",
+      "title": "Customer"
+    },
+    "amount": {
+      "type": "number",
+      "title": "Amount"
+    },
+    "reason": {
+      "type": "string",
+      "title": "Reason"
+    },
+    "method": {
+      "type": "string",
+      "title": "Refund Method",
+      "enum": [
+        "Cash",
+        "UPI",
+        "Card",
+        "Online"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "title": "Status",
+      "enum": [
+        "pending",
+        "approved",
+        "rejected"
+      ]
+    },
+    "branch_id": {
+      "type": "string",
+      "title": "Branch ID"
+    }
+  },
+  "required": [
+    "order_number",
+    "amount",
+    "reason",
+    "status"
+  ]
+}

@@ -1,0 +1,53 @@
+{
+  "name": "Combo",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "title": "Combo Name"
+    },
+    "description": {
+      "type": "string",
+      "title": "Description"
+    },
+    "items": {
+      "type": "array",
+      "title": "Items",
+      "items": {
+        "type": "string"
+      }
+    },
+    "price": {
+      "type": "number",
+      "title": "Price"
+    },
+    "original_price": {
+      "type": "number",
+      "title": "Original Price"
+    },
+    "image_url": {
+      "type": "string",
+      "title": "Image URL"
+    },
+    "status": {
+      "type": "string",
+      "title": "Status",
+      "enum": [
+        "active",
+        "inactive"
+      ]
+    },
+    "branch_ids": {
+      "type": "array",
+      "title": "Available at Branches",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "name",
+    "price",
+    "status"
+  ]
+}

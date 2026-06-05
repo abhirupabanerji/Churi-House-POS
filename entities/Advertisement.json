@@ -1,0 +1,56 @@
+{
+  "name": "Advertisement",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "title": "Ad Title"
+    },
+    "description": {
+      "type": "string",
+      "title": "Description"
+    },
+    "image_url": {
+      "type": "string",
+      "title": "Image URL"
+    },
+    "link_url": {
+      "type": "string",
+      "title": "Link URL"
+    },
+    "placement": {
+      "type": "string",
+      "title": "Placement",
+      "enum": [
+        "dashboard_banner",
+        "pos_screen",
+        "receipt",
+        "kds_screen"
+      ]
+    },
+    "branch_id": {
+      "type": "string",
+      "title": "Branch ID (blank = all)"
+    },
+    "start_date": {
+      "type": "string",
+      "title": "Start Date"
+    },
+    "end_date": {
+      "type": "string",
+      "title": "End Date"
+    },
+    "is_active": {
+      "type": "boolean",
+      "title": "Active"
+    },
+    "priority": {
+      "type": "number",
+      "title": "Priority"
+    }
+  },
+  "required": [
+    "title",
+    "placement"
+  ]
+}

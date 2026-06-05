@@ -1,0 +1,50 @@
+{
+  "name": "StockAdjustmentRecord",
+  "type": "object",
+  "properties": {
+    "item_name": {
+      "type": "string",
+      "title": "Item Name"
+    },
+    "type": {
+      "type": "string",
+      "title": "Type",
+      "enum": [
+        "Received",
+        "Waste",
+        "Transfer",
+        "Correction"
+      ]
+    },
+    "quantity": {
+      "type": "number",
+      "title": "Quantity"
+    },
+    "unit": {
+      "type": "string",
+      "title": "Unit"
+    },
+    "reason": {
+      "type": "string",
+      "title": "Reason"
+    },
+    "date": {
+      "type": "string",
+      "title": "Date"
+    },
+    "by": {
+      "type": "string",
+      "title": "Recorded By"
+    },
+    "branch_id": {
+      "type": "string",
+      "title": "Branch ID"
+    }
+  },
+  "required": [
+    "item_name",
+    "type",
+    "quantity",
+    "reason"
+  ]
+}

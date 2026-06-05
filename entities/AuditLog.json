@@ -1,0 +1,48 @@
+{
+  "name": "AuditLog",
+  "type": "object",
+  "properties": {
+    "action": {
+      "type": "string",
+      "title": "Action"
+    },
+    "details": {
+      "type": "string",
+      "title": "Details"
+    },
+    "type": {
+      "type": "string",
+      "title": "Type",
+      "enum": [
+        "auth",
+        "order",
+        "menu",
+        "inventory",
+        "finance",
+        "admin",
+        "staff",
+        "system"
+      ]
+    },
+    "user": {
+      "type": "string",
+      "title": "User"
+    },
+    "role": {
+      "type": "string",
+      "title": "Role"
+    },
+    "branch": {
+      "type": "string",
+      "title": "Branch"
+    },
+    "timestamp": {
+      "type": "string",
+      "title": "Timestamp"
+    }
+  },
+  "required": [
+    "action",
+    "type"
+  ]
+}

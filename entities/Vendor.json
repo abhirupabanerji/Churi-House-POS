@@ -1,0 +1,62 @@
+{
+  "name": "Vendor",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "title": "Vendor Name"
+    },
+    "category": {
+      "type": "string",
+      "title": "Category"
+    },
+    "contact_person": {
+      "type": "string",
+      "title": "Contact Person"
+    },
+    "phone": {
+      "type": "string",
+      "title": "Phone"
+    },
+    "email": {
+      "type": "string",
+      "title": "Email"
+    },
+    "address": {
+      "type": "string",
+      "title": "Address"
+    },
+    "gstin": {
+      "type": "string",
+      "title": "GSTIN"
+    },
+    "outstanding_balance": {
+      "type": "number",
+      "title": "Outstanding Balance"
+    },
+    "credit_limit": {
+      "type": "number",
+      "title": "Credit Limit"
+    },
+    "payment_terms": {
+      "type": "string",
+      "title": "Payment Terms"
+    },
+    "status": {
+      "type": "string",
+      "title": "Status",
+      "enum": [
+        "active",
+        "inactive"
+      ]
+    },
+    "branch_id": {
+      "type": "string",
+      "title": "Branch ID"
+    }
+  },
+  "required": [
+    "name",
+    "status"
+  ]
+}

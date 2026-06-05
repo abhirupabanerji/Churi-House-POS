@@ -1,0 +1,102 @@
+{
+  "name": "BranchSettings",
+  "type": "object",
+  "properties": {
+    "branch_id": {
+      "type": "string",
+      "title": "Branch ID"
+    },
+    "branch_name": {
+      "type": "string",
+      "title": "Branch Name"
+    },
+    "receipt_header": {
+      "type": "string",
+      "title": "Receipt Header"
+    },
+    "receipt_footer": {
+      "type": "string",
+      "title": "Receipt Footer"
+    },
+    "receipt_logo_url": {
+      "type": "string",
+      "title": "Receipt Logo URL"
+    },
+    "logo_url": {
+      "type": "string",
+      "title": "Logo URL"
+    },
+    "favicon_url": {
+      "type": "string",
+      "title": "Favicon URL"
+    },
+    "tagline": {
+      "type": "string",
+      "title": "Tagline"
+    },
+    "show_gst": {
+      "type": "boolean",
+      "title": "Show GST on Receipt"
+    },
+    "show_discount": {
+      "type": "boolean",
+      "title": "Show Discount"
+    },
+    "show_branch_address": {
+      "type": "boolean",
+      "title": "Show Branch Address"
+    },
+    "show_server_name": {
+      "type": "boolean",
+      "title": "Show Server Name"
+    },
+    "receipt_note": {
+      "type": "string",
+      "title": "Custom Receipt Note"
+    },
+    "active_combos": {
+      "type": "array",
+      "title": "Active Combo IDs",
+      "items": {
+        "type": "string"
+      }
+    },
+    "active_offers": {
+      "type": "array",
+      "title": "Active Offer IDs",
+      "items": {
+        "type": "string"
+      }
+    },
+    "dashboard_theme": {
+      "type": "string",
+      "title": "Dashboard Theme",
+      "enum": [
+        "default",
+        "minimal",
+        "franchise_a",
+        "franchise_b"
+      ]
+    },
+    "theme_color": {
+      "type": "string",
+      "title": "Theme Color"
+    },
+    "dark_mode": {
+      "type": "boolean",
+      "title": "Dark Mode"
+    },
+    "compact_sidebar": {
+      "type": "boolean",
+      "title": "Compact Sidebar"
+    },
+    "show_animations": {
+      "type": "boolean",
+      "title": "Show Animations"
+    }
+  },
+  "required": [
+    "branch_id",
+    "branch_name"
+  ]
+}

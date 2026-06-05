@@ -1,0 +1,64 @@
+{
+  "name": "FranchisePayment",
+  "type": "object",
+  "properties": {
+    "branch_id": {
+      "type": "string",
+      "title": "Branch ID"
+    },
+    "branch_name": {
+      "type": "string",
+      "title": "Branch Name"
+    },
+    "month": {
+      "type": "string",
+      "title": "Month (YYYY-MM)"
+    },
+    "total_revenue": {
+      "type": "number",
+      "title": "Total Revenue"
+    },
+    "total_expenses": {
+      "type": "number",
+      "title": "Total Expenses"
+    },
+    "gross_profit": {
+      "type": "number",
+      "title": "Gross Profit"
+    },
+    "franchise_fee_percent": {
+      "type": "number",
+      "title": "Franchise Fee %"
+    },
+    "franchise_fee_amount": {
+      "type": "number",
+      "title": "Franchise Fee Amount"
+    },
+    "royalty_percent": {
+      "type": "number",
+      "title": "Royalty %"
+    },
+    "royalty_amount": {
+      "type": "number",
+      "title": "Royalty Amount"
+    },
+    "net_profit": {
+      "type": "number",
+      "title": "Net Profit"
+    },
+    "status": {
+      "type": "string",
+      "title": "Status",
+      "enum": [
+        "calculated",
+        "paid",
+        "disputed"
+      ]
+    }
+  },
+  "required": [
+    "branch_id",
+    "branch_name",
+    "month"
+  ]
+}

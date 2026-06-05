@@ -1,0 +1,26 @@
+{
+  "name": "PlatformSchedule",
+  "type": "object",
+  "properties": {
+    "platform": {
+      "type": "string",
+      "title": "Platform",
+      "enum": [
+        "swiggy",
+        "zomato"
+      ]
+    },
+    "enabled": {
+      "type": "boolean",
+      "title": "Platform Enabled",
+      "default": true
+    },
+    "schedule": {
+      "type": "string",
+      "title": "Schedule JSON"
+    }
+  },
+  "required": [
+    "platform"
+  ]
+}

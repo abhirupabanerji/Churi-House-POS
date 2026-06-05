@@ -1,0 +1,56 @@
+{
+  "name": "Branch",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "title": "Branch Name"
+    },
+    "code": {
+      "type": "string",
+      "title": "Branch Code"
+    },
+    "address": {
+      "type": "string",
+      "title": "Address"
+    },
+    "city": {
+      "type": "string",
+      "title": "City"
+    },
+    "phone": {
+      "type": "string",
+      "title": "Phone"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "inactive",
+        "maintenance"
+      ],
+      "title": "Status"
+    },
+    "franchise": {
+      "type": "string",
+      "title": "Franchise Name"
+    },
+    "manager_email": {
+      "type": "string",
+      "title": "Manager Email"
+    },
+    "tables_count": {
+      "type": "number",
+      "title": "Number of Tables"
+    },
+    "logo_url": {
+      "type": "string",
+      "title": "Logo URL"
+    }
+  },
+  "required": [
+    "name",
+    "code",
+    "status"
+  ]
+}

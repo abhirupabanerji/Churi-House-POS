@@ -1,0 +1,55 @@
+{
+  "name": "Attendance",
+  "type": "object",
+  "properties": {
+    "staff_name": {
+      "type": "string",
+      "title": "Staff Name"
+    },
+    "role": {
+      "type": "string",
+      "title": "Role"
+    },
+    "shift": {
+      "type": "string",
+      "title": "Shift",
+      "enum": [
+        "Morning (8AM-4PM)",
+        "Evening (4PM-12AM)",
+        "Night (12AM-8AM)"
+      ]
+    },
+    "date": {
+      "type": "string",
+      "title": "Date"
+    },
+    "check_in": {
+      "type": "string",
+      "title": "Check In"
+    },
+    "check_out": {
+      "type": "string",
+      "title": "Check Out"
+    },
+    "status": {
+      "type": "string",
+      "title": "Status",
+      "enum": [
+        "present",
+        "absent",
+        "late",
+        "on_leave"
+      ]
+    },
+    "branch_id": {
+      "type": "string",
+      "title": "Branch ID"
+    }
+  },
+  "required": [
+    "staff_name",
+    "shift",
+    "date",
+    "status"
+  ]
+}

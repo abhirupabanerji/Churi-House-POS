@@ -1,0 +1,106 @@
+{
+  "name": "Order",
+  "type": "object",
+  "properties": {
+    "order_number": {
+      "type": "string",
+      "title": "Order Number"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "dine_in",
+        "takeaway",
+        "delivery",
+        "swiggy",
+        "zomato"
+      ],
+      "title": "Order Type"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "preparing",
+        "ready",
+        "served",
+        "completed",
+        "cancelled"
+      ],
+      "title": "Status"
+    },
+    "items": {
+      "type": "array",
+      "title": "Items",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "price": {
+            "type": "number"
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "subtotal": {
+      "type": "number",
+      "title": "Subtotal"
+    },
+    "tax": {
+      "type": "number",
+      "title": "Tax"
+    },
+    "discount": {
+      "type": "number",
+      "title": "Discount"
+    },
+    "total": {
+      "type": "number",
+      "title": "Total"
+    },
+    "payment_method": {
+      "type": "string",
+      "enum": [
+        "cash",
+        "card",
+        "upi",
+        "online"
+      ],
+      "title": "Payment Method"
+    },
+    "table_number": {
+      "type": "string",
+      "title": "Table Number"
+    },
+    "customer_name": {
+      "type": "string",
+      "title": "Customer Name"
+    },
+    "customer_phone": {
+      "type": "string",
+      "title": "Customer Phone"
+    },
+    "branch_id": {
+      "type": "string",
+      "title": "Branch ID"
+    },
+    "notes": {
+      "type": "string",
+      "title": "Notes"
+    }
+  },
+  "required": [
+    "order_number",
+    "type",
+    "status",
+    "total"
+  ]
+}

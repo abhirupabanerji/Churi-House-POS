@@ -1,0 +1,138 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --font-inter: 'Inter', sans-serif;
+    --background: 20 14% 4%;
+    --foreground: 30 10% 92%;
+    --card: 20 12% 8%;
+    --card-foreground: 30 10% 92%;
+    --popover: 20 12% 8%;
+    --popover-foreground: 30 10% 92%;
+    --primary: 25 95% 53%;
+    --primary-foreground: 20 14% 4%;
+    --secondary: 20 10% 14%;
+    --secondary-foreground: 30 10% 80%;
+    --muted: 20 10% 14%;
+    --muted-foreground: 20 8% 50%;
+    --accent: 25 95% 53%;
+    --accent-foreground: 20 14% 4%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 20 10% 16%;
+    --input: 20 10% 16%;
+    --ring: 25 95% 53%;
+    --chart-1: 25 95% 53%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 200 70% 50%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+    --radius: 0.75rem;
+    --sidebar-background: 20 12% 6%;
+    --sidebar-foreground: 30 10% 80%;
+    --sidebar-primary: 25 95% 53%;
+    --sidebar-primary-foreground: 20 14% 4%;
+    --sidebar-accent: 20 10% 12%;
+    --sidebar-accent-foreground: 30 10% 90%;
+    --sidebar-border: 20 10% 14%;
+    --sidebar-ring: 25 95% 53%;
+  }
+
+  .dark {
+    --background: 20 14% 4%;
+    --foreground: 30 10% 92%;
+    --card: 20 12% 8%;
+    --card-foreground: 30 10% 92%;
+    --popover: 20 12% 8%;
+    --popover-foreground: 30 10% 92%;
+    --primary: 25 95% 53%;
+    --primary-foreground: 20 14% 4%;
+    --secondary: 20 10% 14%;
+    --secondary-foreground: 30 10% 80%;
+    --muted: 20 10% 14%;
+    --muted-foreground: 20 8% 50%;
+    --accent: 25 95% 53%;
+    --accent-foreground: 20 14% 4%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 20 10% 16%;
+    --input: 20 10% 16%;
+    --ring: 25 95% 53%;
+    --chart-1: 25 95% 53%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 200 70% 50%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+    --sidebar-background: 20 12% 6%;
+    --sidebar-foreground: 30 10% 80%;
+    --sidebar-primary: 25 95% 53%;
+    --sidebar-primary-foreground: 20 14% 4%;
+    --sidebar-accent: 20 10% 12%;
+    --sidebar-accent-foreground: 30 10% 90%;
+    --sidebar-border: 20 10% 14%;
+    --sidebar-ring: 25 95% 53%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground font-inter;
+  }
+}
+
+/* Light mode tokens */
+html.light {
+  --background: 30 20% 97%;
+  --foreground: 20 14% 10%;
+  --card: 0 0% 100%;
+  --card-foreground: 20 14% 10%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 20 14% 10%;
+  --secondary: 30 15% 92%;
+  --secondary-foreground: 20 14% 20%;
+  --muted: 30 15% 92%;
+  --muted-foreground: 20 10% 45%;
+  --border: 30 10% 85%;
+  --input: 30 10% 85%;
+  --sidebar-background: 30 15% 95%;
+  --sidebar-foreground: 20 14% 15%;
+  --sidebar-accent: 30 20% 90%;
+  --sidebar-accent-foreground: 20 14% 10%;
+  --sidebar-border: 30 10% 85%;
+}
+
+@layer utilities {
+  .glass {
+    background: rgba(255,255,255,0.03);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  html.light .glass {
+    background: rgba(255,255,255,0.7);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(0,0,0,0.08);
+  }
+  .glass-strong {
+    background: rgba(255,255,255,0.06);
+    backdrop-filter: blur(30px);
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  html.light .glass-strong {
+    background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(30px);
+    border: 1px solid rgba(0,0,0,0.1);
+  }
+  .glow-orange {
+    box-shadow: 0 0 20px rgba(234,88,12,0.15), 0 0 60px rgba(234,88,12,0.05);
+  }
+  .glow-orange-strong {
+    box-shadow: 0 0 30px rgba(234,88,12,0.3), 0 0 80px rgba(234,88,12,0.1);
+  }
+}

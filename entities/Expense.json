@@ -1,0 +1,50 @@
+{
+  "name": "Expense",
+  "type": "object",
+  "properties": {
+    "category": {
+      "type": "string",
+      "title": "Category",
+      "enum": [
+        "Groceries",
+        "Staff",
+        "Utilities",
+        "Rent",
+        "Marketing",
+        "Maintenance",
+        "Misc"
+      ]
+    },
+    "description": {
+      "type": "string",
+      "title": "Description"
+    },
+    "amount": {
+      "type": "number",
+      "title": "Amount"
+    },
+    "date": {
+      "type": "string",
+      "title": "Date"
+    },
+    "payment_method": {
+      "type": "string",
+      "title": "Payment Method",
+      "enum": [
+        "cash",
+        "bank_transfer",
+        "upi",
+        "card"
+      ]
+    },
+    "branch_id": {
+      "type": "string",
+      "title": "Branch ID"
+    }
+  },
+  "required": [
+    "category",
+    "amount",
+    "date"
+  ]
+}

@@ -1,0 +1,92 @@
+{
+  "name": "PurchaseOrder",
+  "type": "object",
+  "properties": {
+    "po_number": {
+      "type": "string",
+      "title": "PO Number"
+    },
+    "vendor_id": {
+      "type": "string",
+      "title": "Vendor ID"
+    },
+    "vendor_name": {
+      "type": "string",
+      "title": "Vendor Name"
+    },
+    "items": {
+      "type": "array",
+      "title": "Items",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "price": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "total_amount": {
+      "type": "number",
+      "title": "Total Amount"
+    },
+    "tax_amount": {
+      "type": "number",
+      "title": "Tax Amount"
+    },
+    "grand_total": {
+      "type": "number",
+      "title": "Grand Total"
+    },
+    "expected_date": {
+      "type": "string",
+      "title": "Expected Delivery Date"
+    },
+    "received_date": {
+      "type": "string",
+      "title": "Received Date"
+    },
+    "status": {
+      "type": "string",
+      "title": "Status",
+      "enum": [
+        "draft",
+        "sent",
+        "pending",
+        "partially_received",
+        "delivered",
+        "cancelled"
+      ]
+    },
+    "payment_status": {
+      "type": "string",
+      "title": "Payment Status",
+      "enum": [
+        "unpaid",
+        "partial",
+        "paid"
+      ]
+    },
+    "notes": {
+      "type": "string",
+      "title": "Notes"
+    },
+    "branch_id": {
+      "type": "string",
+      "title": "Branch ID"
+    }
+  },
+  "required": [
+    "vendor_name",
+    "status"
+  ]
+}

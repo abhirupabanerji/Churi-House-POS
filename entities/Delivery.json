@@ -1,0 +1,59 @@
+{
+  "name": "Delivery",
+  "type": "object",
+  "properties": {
+    "order_id": {
+      "type": "string",
+      "title": "Order ID"
+    },
+    "customer_name": {
+      "type": "string",
+      "title": "Customer Name"
+    },
+    "customer_phone": {
+      "type": "string",
+      "title": "Customer Phone"
+    },
+    "address": {
+      "type": "string",
+      "title": "Delivery Address"
+    },
+    "total": {
+      "type": "number",
+      "title": "Order Total"
+    },
+    "rider_name": {
+      "type": "string",
+      "title": "Rider Name"
+    },
+    "rider_phone": {
+      "type": "string",
+      "title": "Rider Phone"
+    },
+    "eta_minutes": {
+      "type": "number",
+      "title": "ETA (minutes)"
+    },
+    "status": {
+      "type": "string",
+      "title": "Status",
+      "enum": [
+        "pending",
+        "assigned",
+        "picked_up",
+        "on_way",
+        "delivered",
+        "cancelled"
+      ]
+    },
+    "branch_id": {
+      "type": "string",
+      "title": "Branch ID"
+    }
+  },
+  "required": [
+    "customer_name",
+    "address",
+    "status"
+  ]
+}

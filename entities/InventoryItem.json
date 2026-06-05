@@ -1,0 +1,40 @@
+{
+  "name": "InventoryItem",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "title": "Item Name"
+    },
+    "unit": {
+      "type": "string",
+      "title": "Unit"
+    },
+    "stock": {
+      "type": "number",
+      "title": "Current Stock"
+    },
+    "min_level": {
+      "type": "number",
+      "title": "Min Level"
+    },
+    "cost_per_unit": {
+      "type": "number",
+      "title": "Cost per Unit"
+    },
+    "category": {
+      "type": "string",
+      "title": "Category"
+    },
+    "branch_id": {
+      "type": "string",
+      "title": "Branch ID"
+    }
+  },
+  "required": [
+    "name",
+    "unit",
+    "stock",
+    "min_level"
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "name": "Notification",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "title": "Title"
+    },
+    "message": {
+      "type": "string",
+      "title": "Message"
+    },
+    "type": {
+      "type": "string",
+      "title": "Type",
+      "enum": [
+        "vendor_payment",
+        "low_stock",
+        "order",
+        "system"
+      ]
+    },
+    "link": {
+      "type": "string",
+      "title": "Link"
+    },
+    "is_read": {
+      "type": "boolean",
+      "title": "Read"
+    },
+    "timestamp": {
+      "type": "string",
+      "title": "Timestamp"
+    },
+    "for_roles": {
+      "type": "array",
+      "title": "Visible to Roles",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "title",
+    "type"
+  ]
+}

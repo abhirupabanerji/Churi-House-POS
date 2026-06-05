@@ -1,0 +1,55 @@
+{
+  "name": "Reservation",
+  "type": "object",
+  "properties": {
+    "guest_name": {
+      "type": "string",
+      "title": "Guest Name"
+    },
+    "phone": {
+      "type": "string",
+      "title": "Phone"
+    },
+    "date": {
+      "type": "string",
+      "title": "Date"
+    },
+    "time": {
+      "type": "string",
+      "title": "Time"
+    },
+    "guests": {
+      "type": "number",
+      "title": "No. of Guests"
+    },
+    "table_number": {
+      "type": "string",
+      "title": "Table Number"
+    },
+    "status": {
+      "type": "string",
+      "title": "Status",
+      "enum": [
+        "pending",
+        "confirmed",
+        "cancelled",
+        "completed"
+      ]
+    },
+    "notes": {
+      "type": "string",
+      "title": "Notes"
+    },
+    "branch_id": {
+      "type": "string",
+      "title": "Branch ID"
+    }
+  },
+  "required": [
+    "guest_name",
+    "date",
+    "time",
+    "guests",
+    "status"
+  ]
+}

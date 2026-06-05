@@ -1,0 +1,56 @@
+{
+  "name": "TaxRecord",
+  "type": "object",
+  "properties": {
+    "period": {
+      "type": "string",
+      "title": "Period (e.g. May 2026)"
+    },
+    "taxable_amount": {
+      "type": "number",
+      "title": "Taxable Amount"
+    },
+    "cgst_rate": {
+      "type": "number",
+      "title": "CGST Rate %"
+    },
+    "sgst_rate": {
+      "type": "number",
+      "title": "SGST Rate %"
+    },
+    "cgst_amount": {
+      "type": "number",
+      "title": "CGST Amount"
+    },
+    "sgst_amount": {
+      "type": "number",
+      "title": "SGST Amount"
+    },
+    "total_tax": {
+      "type": "number",
+      "title": "Total Tax"
+    },
+    "status": {
+      "type": "string",
+      "title": "Status",
+      "enum": [
+        "pending",
+        "filed",
+        "paid"
+      ]
+    },
+    "branch_id": {
+      "type": "string",
+      "title": "Branch ID"
+    },
+    "notes": {
+      "type": "string",
+      "title": "Notes"
+    }
+  },
+  "required": [
+    "period",
+    "total_tax",
+    "status"
+  ]
+}

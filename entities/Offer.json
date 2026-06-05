@@ -1,0 +1,76 @@
+{
+  "name": "Offer",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "title": "Offer Name"
+    },
+    "description": {
+      "type": "string",
+      "title": "Description"
+    },
+    "offer_type": {
+      "type": "string",
+      "title": "Type",
+      "enum": [
+        "percentage",
+        "flat",
+        "bogo",
+        "time_based",
+        "coupon"
+      ]
+    },
+    "discount_value": {
+      "type": "number",
+      "title": "Discount Value"
+    },
+    "min_order_value": {
+      "type": "number",
+      "title": "Min Order Value"
+    },
+    "valid_from": {
+      "type": "string",
+      "title": "Valid From"
+    },
+    "valid_to": {
+      "type": "string",
+      "title": "Valid To"
+    },
+    "valid_days": {
+      "type": "array",
+      "title": "Valid Days",
+      "items": {
+        "type": "string"
+      }
+    },
+    "valid_from_time": {
+      "type": "string",
+      "title": "Valid From Time"
+    },
+    "valid_to_time": {
+      "type": "string",
+      "title": "Valid To Time"
+    },
+    "status": {
+      "type": "string",
+      "title": "Status",
+      "enum": [
+        "active",
+        "inactive"
+      ]
+    },
+    "branch_ids": {
+      "type": "array",
+      "title": "Available at Branches",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "name",
+    "offer_type",
+    "status"
+  ]
+}
