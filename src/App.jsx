@@ -69,18 +69,15 @@ const AuthenticatedApp = () => {
 
   // Handle authentication errors
   if (authError) {
-    if (authError.type === 'user_not_registered') {
-      return <UserNotRegisteredError />;
-    } else if (authError.type === 'auth_required') {
-      // Allow if restaurant session exists
-      if (localStorage.getItem('restaurant_session')) {
-        // fall through to render routes
-      } else {
-        navigateToLogin();
-        return null;
-      }
+  if (authError.type === 'user_not_registered') {
+    return <UserNotRegisteredError />;
+  } else if (authError.type === 'auth_required') {
+    if (!localStorage.getItem('restaurant_session')) {
+      window.location.href = '/login';
+      return null;
     }
   }
+}
 
   // Render the main app
   return (

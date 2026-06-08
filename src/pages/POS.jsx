@@ -8,6 +8,8 @@ import ReceiptPreview from "@/components/ReceiptPreview";
 import { logAudit } from "@/lib/auditLog";
 import { fieldError } from "@/lib/formValidation";
 
+const raw = JSON.parse(localStorage.getItem("local_AppUser") || "{}");
+const currentUser = Array.isArray(raw) ? raw[0] : raw;
 const LS_CAT_KEY = "menu_custom_categories";
 const DEFAULT_CATEGORIES = ["Starters", "Main Course", "Biryani", "Breads", "Desserts", "Beverages"];
 
@@ -74,16 +76,17 @@ export default function POS() {
   const placeOrder = async (paymentMethod, print = false) => {
     const orderNum = `CH-${Date.now().toString(36).toUpperCase()}`;
     const order = {
-      order_number: orderNum,
-      type: orderType,
-      status: "pending",
-      items: cart.map(c => ({ name: c.name, quantity: c.qty, price: c.price })),
-      subtotal, tax, discount: 0, total,
-      payment_method: paymentMethod,
-      table_number: tableNum,
-      customer_name: customerName,
-      customer_phone: customerPhone,
-    };
+  order_number: orderNum,
+  type: orderType,
+  status: "pending",
+  items: cart.map(c => ({ name: c.name, quantity: c.qty, price: c.price })),
+  subtotal, tax, discount: 0, total,
+  payment_method: paymentMethod,
+  table_number: tableNum,
+  customer_name: customerName,
+  customer_phone: customerPhone,
+  billed_by: currentUser.full_name || currentUser.username || "Unknown", 
+};
     await base44.entities.Order.create(order);
     logAudit({ action: `Order placed: ${orderNum}`, type: "order", details: `${paymentMethod} | ₹${total} | ${orderType}` });
     setLastOrder(order);
@@ -100,7 +103,7 @@ export default function POS() {
     await base44.entities.DeletedOrder.create({
       order_number: orderNum,
       order_data: JSON.stringify({ items: cart, subtotal, tax, total, orderType, tableNum, customerName }),
-      deleted_by: "POS User",
+      deleted_by: currentUser.full_name || currentUser.username || "POS User",
       deleted_at: new Date().toISOString(),
       bill_generated: false,
       reason: voidReason,

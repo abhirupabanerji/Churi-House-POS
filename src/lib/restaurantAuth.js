@@ -12,34 +12,15 @@ export const clearSession = () => localStorage.removeItem(SESSION_KEY);
 
 export const isLoggedIn = () => !!getSession();
 
-export const DEMO_ADMIN = {
-  id: "demo_admin",
-  full_name: "Demo Admin",
-  username: "admin",
-  role: "super_admin",
-  franchise: "Churi House",
-  branch_id: "All Branches",
-  status: "active",
-};
-
 export const loginUser = async (username, password, franchise) => {
-  // Demo shortcut
-  if (username === "admin" && password === "admin123") {
-    const session = { ...DEMO_ADMIN, franchise: franchise || "Churi House" };
-    setSession(session);
-    return session;
-  }
-  // Check AppUser entity
   const users = await base44.entities.AppUser.list();
   const match = users.find(
     (u) =>
       u.username?.toLowerCase() === username.toLowerCase() &&
-      u.password === password &&
-      (!franchise || u.franchise === franchise || !u.franchise)
+      u.password === password
   );
   if (!match) throw new Error("Invalid username or password.");
   if (match.status !== "active") throw new Error("Account is inactive. Contact admin.");
-  // Update last login
   await base44.entities.AppUser.update(match.id, { last_login: new Date().toISOString() }).catch(() => {});
   setSession(match);
   return match;

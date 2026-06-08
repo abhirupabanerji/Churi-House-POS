@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { base44 } from "@/api/base44Client";
-import { Search, Package, AlertTriangle, Plus, Pencil, Trash2, X } from "lucide-react";
+import { Search, Package, AlertTriangle, Plus, Pencil, Trash2, X, Upload, Download, CheckCircle, AlertCircle } from "lucide-react";
 import { logAudit } from "@/lib/auditLog";
 import { softDelete } from "@/lib/softDelete";
 import { useEntityQuery, useInvalidate } from "@/lib/useEntityQuery";
@@ -9,8 +9,255 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { fieldError, nonNegativeNumber, required } from "@/lib/formValidation";
+import * as XLSX from "xlsx";
 
-const statusStyle = { ok: "bg-green-500/10 text-green-400", low: "bg-yellow-500/10 text-yellow-400", critical: "bg-red-500/10 text-red-400" };
+const statusStyle = {
+  ok: "bg-green-500/10 text-green-400",
+  low: "bg-yellow-500/10 text-yellow-400",
+  critical: "bg-red-500/10 text-red-400",
+};
+
+const INVENTORY_CATEGORIES = ["Produce", "Meat", "Dairy", "Spices", "Beverages", "Dry Goods", "Packaging"];
+const INVENTORY_UNITS = ["kg", "L", "pcs", "box", "dozen", "g", "ml"];
+
+// ── Bulk upload helpers ──────────────────────────────────────────────────────
+
+function downloadInventoryTemplate() {
+  const ws = XLSX.utils.aoa_to_sheet([
+    ["Item Name", "Category", "Unit", "Current Stock", "Min Level", "Cost per Unit (₹)"],
+    ["Tomatoes", "Produce", "kg", 20, 5, 40],
+    ["Chicken", "Meat", "kg", 15, 3, 220],
+    ["Milk", "Dairy", "L", 10, 2, 60],
+  ]);
+  ws["!cols"] = [{ wch: 20 }, { wch: 14 }, { wch: 8 }, { wch: 16 }, { wch: 12 }, { wch: 20 }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Inventory");
+  XLSX.writeFile(wb, "inventory_template.xlsx");
+}
+
+function parseInventoryFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const wb = XLSX.read(e.target.result, { type: "binary" });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, { defval: "" });
+        const parsed = rows.map((row, i) => {
+          const errors = [];
+          const name = String(row["Item Name"] || row["Name"] || "").trim();
+          const category = String(row["Category"] || "").trim();
+          const unit = String(row["Unit"] || "").trim();
+          const stock = Number(row["Current Stock"] || row["Stock"] || 0);
+          const minLevel = Number(row["Min Level"] || 0);
+          const costPerUnit = Number(row["Cost per Unit (₹)"] || row["Cost per Unit"] || 0);
+
+          if (!name) errors.push("Item Name is required");
+          if (!category) errors.push("Category is required");
+          if (!unit) errors.push("Unit is required");
+          if (isNaN(stock) || stock < 0) errors.push("Valid stock required");
+          if (isNaN(minLevel) || minLevel < 0) errors.push("Valid min level required");
+
+          return {
+            _row: i + 2,
+            _errors: errors,
+            name, category, unit,
+            stock, min_level: minLevel,
+            cost_per_unit: costPerUnit,
+          };
+        });
+        resolve(parsed);
+      } catch (err) {
+        reject(new Error("Failed to parse file. Make sure it's a valid .xlsx or .csv"));
+      }
+    };
+    reader.onerror = () => reject(new Error("Failed to read file."));
+    reader.readAsBinaryString(file);
+  });
+}
+
+// ── Bulk Upload Modal ────────────────────────────────────────────────────────
+
+function InventoryBulkUploadModal({ onClose, onImported }) {
+  const [step, setStep] = useState(1);
+  const [rows, setRows] = useState([]);
+  const [importing, setImporting] = useState(false);
+  const [fileError, setFileError] = useState("");
+
+  const handleFile = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setFileError("");
+    try {
+      const parsed = await parseInventoryFile(file);
+      if (parsed.length === 0) { setFileError("No data rows found in file."); return; }
+      setRows(parsed);
+      setStep(3);
+    } catch (err) {
+      setFileError(err.message);
+    }
+  };
+
+  const validRows = rows.filter(r => r._errors.length === 0);
+  const invalidRows = rows.filter(r => r._errors.length > 0);
+
+  const handleImport = async () => {
+    if (validRows.length === 0) return;
+    setImporting(true);
+    try {
+      for (const row of validRows) {
+        const { _row, _errors, ...data } = row;
+        await base44.entities.InventoryItem.create(data);
+      }
+      logAudit({ action: `Bulk import: ${validRows.length} inventory items added`, type: "inventory" });
+      toast.success(`✅ ${validRows.length} items imported successfully.`);
+      onImported();
+      onClose();
+    } catch (err) {
+      toast.error("❌ Import failed: " + err.message);
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div className="glass-strong rounded-2xl p-6 w-full max-w-2xl mx-4 space-y-4 max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold text-foreground">Bulk Upload Inventory Items</h2>
+          <button onClick={onClose}><X className="w-5 h-5 text-muted-foreground" /></button>
+        </div>
+
+        {/* Step indicators */}
+        <div className="flex items-center gap-2">
+          {["Download Template", "Upload File", "Preview & Import"].map((s, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${step > i + 1 ? "bg-green-500 text-white" : step === i + 1 ? "bg-primary text-white" : "bg-white/10 text-muted-foreground"}`}>
+                {step > i + 1 ? "✓" : i + 1}
+              </div>
+              <span className={`text-xs ${step === i + 1 ? "text-foreground font-medium" : "text-muted-foreground"}`}>{s}</span>
+              {i < 2 && <div className="w-6 h-px bg-white/10" />}
+            </div>
+          ))}
+        </div>
+
+        {/* Step 1 — Download Template */}
+        {step === 1 && (
+          <div className="space-y-4">
+            <div className="glass rounded-xl p-4 space-y-2">
+              <p className="text-sm text-foreground font-medium">Step 1: Download the sample template</p>
+              <p className="text-xs text-muted-foreground">Fill in your inventory data using the template columns.</p>
+              <div className="mt-3 text-xs text-muted-foreground space-y-1">
+                <p className="font-medium text-foreground">Columns included:</p>
+                <p>Item Name, Category, Unit, Current Stock, Min Level, Cost per Unit (₹)</p>
+              </div>
+            </div>
+            <Button onClick={downloadInventoryTemplate} className="w-full bg-primary hover:bg-primary/90">
+              <Download className="w-4 h-4 mr-2" /> Download Sample Template (.xlsx)
+            </Button>
+            <Button variant="outline" onClick={() => setStep(2)} className="w-full bg-white/5 border-white/10">
+              Skip — I already have a file →
+            </Button>
+          </div>
+        )}
+
+        {/* Step 2 — Upload File */}
+        {step === 2 && (
+          <div className="space-y-4">
+            <div className="glass rounded-xl p-4 space-y-2">
+              <p className="text-sm text-foreground font-medium">Step 2: Upload your filled file</p>
+              <p className="text-xs text-muted-foreground">Accepted formats: .xlsx, .csv</p>
+            </div>
+            <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-white/20 rounded-xl cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all">
+              <Upload className="w-8 h-8 text-muted-foreground mb-2" />
+              <span className="text-sm text-muted-foreground">Click to choose file or drag & drop</span>
+              <span className="text-xs text-muted-foreground mt-1">.xlsx or .csv</span>
+              <input type="file" accept=".xlsx,.csv,.xls" className="hidden" onChange={handleFile} />
+            </label>
+            {fileError && <p className="text-xs text-red-400 bg-red-500/10 rounded-lg px-3 py-2">{fileError}</p>}
+            <Button variant="outline" onClick={() => setStep(1)} className="w-full bg-white/5 border-white/10">
+              ← Back
+            </Button>
+          </div>
+        )}
+
+        {/* Step 3 — Preview */}
+        {step === 3 && (
+          <div className="space-y-4">
+            <div className="flex gap-3">
+              <div className="flex-1 glass rounded-xl p-3 flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-green-400" />
+                <div>
+                  <p className="text-xs text-muted-foreground">Valid rows</p>
+                  <p className="text-sm font-bold text-green-400">{validRows.length}</p>
+                </div>
+              </div>
+              <div className="flex-1 glass rounded-xl p-3 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-red-400" />
+                <div>
+                  <p className="text-xs text-muted-foreground">Rows with errors</p>
+                  <p className="text-sm font-bold text-red-400">{invalidRows.length}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="glass rounded-xl overflow-hidden max-h-64 overflow-y-auto">
+              <table className="w-full text-xs">
+                <thead className="sticky top-0 bg-background/80">
+                  <tr className="border-b border-white/10">
+                    <th className="text-left p-2 text-muted-foreground">Row</th>
+                    <th className="text-left p-2 text-muted-foreground">Name</th>
+                    <th className="text-left p-2 text-muted-foreground">Category</th>
+                    <th className="text-left p-2 text-muted-foreground">Unit</th>
+                    <th className="text-left p-2 text-muted-foreground">Stock</th>
+                    <th className="text-left p-2 text-muted-foreground">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row, i) => (
+                    <tr key={i} className={`border-b border-white/5 ${row._errors.length > 0 ? "bg-red-500/5" : "bg-green-500/5"}`}>
+                      <td className="p-2 text-muted-foreground">{row._row}</td>
+                      <td className="p-2 text-foreground">{row.name || "—"}</td>
+                      <td className="p-2 text-muted-foreground">{row.category || "—"}</td>
+                      <td className="p-2 text-muted-foreground">{row.unit || "—"}</td>
+                      <td className="p-2 text-muted-foreground">{row.stock} {row.unit}</td>
+                      <td className="p-2">
+                        {row._errors.length === 0
+                          ? <span className="text-green-400">✓ Valid</span>
+                          : <span className="text-red-400" title={row._errors.join(", ")}>✗ {row._errors[0]}</span>
+                        }
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {invalidRows.length > 0 && (
+              <p className="text-xs text-yellow-400 bg-yellow-500/10 rounded-lg px-3 py-2">
+                ⚠ {invalidRows.length} row(s) with errors will be skipped. Only {validRows.length} valid rows will be imported.
+              </p>
+            )}
+
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1 bg-white/5 border-white/10" onClick={() => setStep(2)}>← Back</Button>
+              <Button
+                className="flex-1 bg-primary hover:bg-primary/90"
+                onClick={handleImport}
+                disabled={validRows.length === 0 || importing}
+              >
+                {importing ? "Importing..." : `Import ${validRows.length} Items`}
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Main Component ───────────────────────────────────────────────────────────
 
 export default function Inventory() {
   const [search, setSearch] = useState("");
@@ -20,24 +267,44 @@ export default function Inventory() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ name: "", unit: "kg", stock: 0, min_level: 5, cost_per_unit: 0, category: "Produce" });
   const [errors, setErrors] = useState({});
+  const [showBulkUpload, setShowBulkUpload] = useState(false);
 
   const { data: items = [], isLoading: loading } = useEntityQuery("InventoryItem", { sort: "name", limit: 100 });
   const invalidate = useInvalidate();
   const load = () => invalidate("InventoryItem");
 
-  const getStatus = (item) => item.stock <= 0 ? "critical" : item.stock < item.min_level ? (item.stock < item.min_level / 2 ? "critical" : "low") : "ok";
+  const getStatus = (item) =>
+    item.stock <= 0 ? "critical"
+    : item.stock < item.min_level ? (item.stock < item.min_level / 2 ? "critical" : "low")
+    : "ok";
+
   const categories = ["All", ...new Set(items.map(i => i.category).filter(Boolean))];
+
   const filtered = items.filter(i => {
     const matchSearch = i.name?.toLowerCase().includes(search.toLowerCase());
     const matchCat = categoryFilter === "All" || i.category === categoryFilter;
     const status = getStatus(i);
-    const matchStatus = statusFilter === "All" || (statusFilter === "ok" && status === "ok") || (statusFilter === "low" && status === "low") || (statusFilter === "critical" && status === "critical");
+    const matchStatus = statusFilter === "All"
+      || (statusFilter === "ok" && status === "ok")
+      || (statusFilter === "low" && status === "low")
+      || (statusFilter === "critical" && status === "critical");
     return matchSearch && matchCat && matchStatus;
   });
+
   const lowCount = items.filter(i => getStatus(i) !== "ok").length;
 
-  const openNew = () => { setEditing(null); setErrors({}); setForm({ name: "", unit: "kg", stock: 0, min_level: 5, cost_per_unit: 0, category: "Produce" }); setShowForm(true); };
-  const openEdit = (i) => { setEditing(i); setErrors({}); setForm({ name: i.name, unit: i.unit, stock: i.stock, min_level: i.min_level, cost_per_unit: i.cost_per_unit||0, category: i.category||"Produce" }); setShowForm(true); };
+  const openNew = () => {
+    setEditing(null); setErrors({});
+    setForm({ name: "", unit: "kg", stock: 0, min_level: 5, cost_per_unit: 0, category: "Produce" });
+    setShowForm(true);
+  };
+
+  const openEdit = (i) => {
+    setEditing(i); setErrors({});
+    setForm({ name: i.name, unit: i.unit, stock: i.stock, min_level: i.min_level, cost_per_unit: i.cost_per_unit || 0, category: i.category || "Produce" });
+    setShowForm(true);
+  };
+
   const validate = () => {
     const next = {};
     required(next, "name", form.name);
@@ -64,6 +331,7 @@ export default function Inventory() {
     setShowForm(false);
     invalidate("InventoryItem");
   };
+
   const remove = async (id) => {
     const item = items.find(i => i.id === id);
     if (!item || !confirm(`Delete "${item.name}"?`)) return;
@@ -77,10 +345,23 @@ export default function Inventory() {
   return (
     <div className="p-6 space-y-5">
       <div className="flex items-center justify-between">
-        <div><h1 className="text-2xl font-bold text-foreground">Inventory</h1><p className="text-sm text-muted-foreground">{items.length} items tracked</p></div>
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Inventory</h1>
+          <p className="text-sm text-muted-foreground">{items.length} items tracked</p>
+        </div>
         <div className="flex items-center gap-3">
-          {lowCount > 0 && <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-red-500/10 border border-red-500/20"><AlertTriangle className="w-4 h-4 text-red-400" /><span className="text-xs text-red-400 font-medium">{lowCount} low</span></div>}
-          <Button onClick={openNew} className="bg-primary hover:bg-primary/90 glow-orange"><Plus className="w-4 h-4 mr-1" /> Add Item</Button>
+          {lowCount > 0 && (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-red-500/10 border border-red-500/20">
+              <AlertTriangle className="w-4 h-4 text-red-400" />
+              <span className="text-xs text-red-400 font-medium">{lowCount} low</span>
+            </div>
+          )}
+          <Button onClick={() => setShowBulkUpload(true)} variant="outline" className="bg-white/5 border-white/10 text-xs">
+            <Upload className="w-3.5 h-3.5 mr-1" /> Bulk Upload
+          </Button>
+          <Button onClick={openNew} className="bg-primary hover:bg-primary/90 glow-orange">
+            <Plus className="w-4 h-4 mr-1" /> Add Item
+          </Button>
         </div>
       </div>
 
@@ -100,24 +381,45 @@ export default function Inventory() {
         </select>
       </div>
 
-      {loading ? <div className="flex justify-center py-20"><div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" /></div> : (
+      {loading ? (
+        <div className="flex justify-center py-20"><div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" /></div>
+      ) : (
         <div className="glass rounded-2xl overflow-hidden">
           <table className="w-full text-sm">
-            <thead><tr className="border-b border-white/5">{["Ingredient","Category","Stock","Min Level","Cost/Unit","Status","Actions"].map(h=><th key={h} className="text-left p-4 text-xs font-medium text-muted-foreground uppercase">{h}</th>)}</tr></thead>
+            <thead>
+              <tr className="border-b border-white/5">
+                {["Ingredient", "Category", "Stock", "Min Level", "Cost/Unit", "Status", "Actions"].map(h => (
+                  <th key={h} className="text-left p-4 text-xs font-medium text-muted-foreground uppercase">{h}</th>
+                ))}
+              </tr>
+            </thead>
             <tbody>
-              {filtered.length === 0 ? <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">No items yet. Add your first item.</td></tr> : filtered.map(item => {
+              {filtered.length === 0 ? (
+                <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">No items yet. Add your first item.</td></tr>
+              ) : filtered.map(item => {
                 const s = getStatus(item);
                 return (
                   <tr key={item.id} className="border-b border-white/5 hover:bg-white/5">
-                    <td className="p-4 flex items-center gap-2"><Package className="w-4 h-4 text-muted-foreground" /><span className="font-medium text-foreground">{item.name}</span></td>
+                    <td className="p-4 flex items-center gap-2">
+                      <Package className="w-4 h-4 text-muted-foreground" />
+                      <span className="font-medium text-foreground">{item.name}</span>
+                    </td>
                     <td className="p-4 text-muted-foreground">{item.category}</td>
                     <td className="p-4 text-foreground">{item.stock} {item.unit}</td>
                     <td className="p-4 text-muted-foreground">{item.min_level} {item.unit}</td>
-                    <td className="p-4 text-muted-foreground">₹{item.cost_per_unit||0}</td>
-                    <td className="p-4"><span className={`text-xs font-medium px-2 py-1 rounded-full ${statusStyle[s]}`}>{s === "critical" ? "Critical" : s === "low" ? "Low Stock" : "In Stock"}</span></td>
+                    <td className="p-4 text-muted-foreground">₹{item.cost_per_unit || 0}</td>
+                    <td className="p-4">
+                      <span className={`text-xs font-medium px-2 py-1 rounded-full ${statusStyle[s]}`}>
+                        {s === "critical" ? "Critical" : s === "low" ? "Low Stock" : "In Stock"}
+                      </span>
+                    </td>
                     <td className="p-4 flex gap-1">
-                      <Button size="sm" variant="outline" className="h-7 px-2 bg-white/5 border-white/10" onClick={() => openEdit(item)}><Pencil className="w-3 h-3" /></Button>
-                      <Button size="sm" variant="outline" className="h-7 px-2 bg-red-500/10 border-red-500/20 text-red-400" onClick={() => remove(item.id)}><Trash2 className="w-3 h-3" /></Button>
+                      <Button size="sm" variant="outline" className="h-7 px-2 bg-white/5 border-white/10" onClick={() => openEdit(item)}>
+                        <Pencil className="w-3 h-3" />
+                      </Button>
+                      <Button size="sm" variant="outline" className="h-7 px-2 bg-red-500/10 border-red-500/20 text-red-400" onClick={() => remove(item.id)}>
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
                     </td>
                   </tr>
                 );
@@ -127,43 +429,53 @@ export default function Inventory() {
         </div>
       )}
 
+      {/* Add/Edit Modal */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="glass-strong rounded-2xl p-6 w-full max-w-md mx-4 space-y-3">
-            <div className="flex items-center justify-between"><h2 className="text-lg font-bold text-foreground">{editing?"Edit":"Add"} Inventory Item</h2><button onClick={() => setShowForm(false)}><X className="w-5 h-5 text-muted-foreground" /></button></div>
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold text-foreground">{editing ? "Edit" : "Add"} Inventory Item</h2>
+              <button onClick={() => setShowForm(false)}><X className="w-5 h-5 text-muted-foreground" /></button>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5 col-span-2">
                 <Label className="text-xs">Item Name *</Label>
-                <Input value={form.name} onChange={e=>{ setForm(f=>({...f,name:e.target.value})); setErrors(er=>({...er,name:""})); }} className={`h-9 bg-white/5 border-white/10 text-sm ${fieldError(errors, "name") ? "border-red-500" : ""}`} />
+                <Input value={form.name} onChange={e => { setForm(f => ({ ...f, name: e.target.value })); setErrors(er => ({ ...er, name: "" })); }}
+                  className={`h-9 bg-white/5 border-white/10 text-sm ${fieldError(errors, "name") ? "border-red-500" : ""}`} />
                 {fieldError(errors, "name") && <p className="text-xs text-red-400">{fieldError(errors, "name")}</p>}
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Category *</Label>
-                <select value={form.category} onChange={e=>{ setForm(f=>({...f,category:e.target.value})); setErrors(er=>({...er,category:""})); }} className={`w-full h-9 rounded-md bg-secondary border text-sm px-3 text-foreground ${fieldError(errors, "category") ? "border-red-500" : "border-white/10"}`}>
-                  {["Produce","Meat","Dairy","Spices","Beverages","Dry Goods","Packaging"].map(c=><option key={c} value={c}>{c}</option>)}
+                <select value={form.category} onChange={e => { setForm(f => ({ ...f, category: e.target.value })); setErrors(er => ({ ...er, category: "" })); }}
+                  className={`w-full h-9 rounded-md bg-secondary border text-sm px-3 text-foreground ${fieldError(errors, "category") ? "border-red-500" : "border-white/10"}`}>
+                  {INVENTORY_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
                 {fieldError(errors, "category") && <p className="text-xs text-red-400">{fieldError(errors, "category")}</p>}
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Unit *</Label>
-                <select value={form.unit} onChange={e=>{ setForm(f=>({...f,unit:e.target.value})); setErrors(er=>({...er,unit:""})); }} className={`w-full h-9 rounded-md bg-secondary border text-sm px-3 text-foreground ${fieldError(errors, "unit") ? "border-red-500" : "border-white/10"}`}>
-                  {["kg","L","pcs","box","dozen","g","ml"].map(u=><option key={u} value={u}>{u}</option>)}
+                <select value={form.unit} onChange={e => { setForm(f => ({ ...f, unit: e.target.value })); setErrors(er => ({ ...er, unit: "" })); }}
+                  className={`w-full h-9 rounded-md bg-secondary border text-sm px-3 text-foreground ${fieldError(errors, "unit") ? "border-red-500" : "border-white/10"}`}>
+                  {INVENTORY_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
                 </select>
                 {fieldError(errors, "unit") && <p className="text-xs text-red-400">{fieldError(errors, "unit")}</p>}
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Current Stock *</Label>
-                <Input type="number" value={form.stock} onChange={e=>{ setForm(f=>({...f,stock:e.target.value})); setErrors(er=>({...er,stock:""})); }} className={`h-9 bg-white/5 border-white/10 text-sm ${fieldError(errors, "stock") ? "border-red-500" : ""}`} />
+                <Input type="number" value={form.stock} onChange={e => { setForm(f => ({ ...f, stock: e.target.value })); setErrors(er => ({ ...er, stock: "" })); }}
+                  className={`h-9 bg-white/5 border-white/10 text-sm ${fieldError(errors, "stock") ? "border-red-500" : ""}`} />
                 {fieldError(errors, "stock") && <p className="text-xs text-red-400">{fieldError(errors, "stock")}</p>}
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Min Level *</Label>
-                <Input type="number" value={form.min_level} onChange={e=>{ setForm(f=>({...f,min_level:e.target.value})); setErrors(er=>({...er,min_level:""})); }} className={`h-9 bg-white/5 border-white/10 text-sm ${fieldError(errors, "min_level") ? "border-red-500" : ""}`} />
+                <Input type="number" value={form.min_level} onChange={e => { setForm(f => ({ ...f, min_level: e.target.value })); setErrors(er => ({ ...er, min_level: "" })); }}
+                  className={`h-9 bg-white/5 border-white/10 text-sm ${fieldError(errors, "min_level") ? "border-red-500" : ""}`} />
                 {fieldError(errors, "min_level") && <p className="text-xs text-red-400">{fieldError(errors, "min_level")}</p>}
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Cost per Unit (?) *</Label>
-                <Input type="number" value={form.cost_per_unit} onChange={e=>{ setForm(f=>({...f,cost_per_unit:e.target.value})); setErrors(er=>({...er,cost_per_unit:""})); }} className={`h-9 bg-white/5 border-white/10 text-sm ${fieldError(errors, "cost_per_unit") ? "border-red-500" : ""}`} />
+                <Label className="text-xs">Cost per Unit (₹) *</Label>
+                <Input type="number" value={form.cost_per_unit} onChange={e => { setForm(f => ({ ...f, cost_per_unit: e.target.value })); setErrors(er => ({ ...er, cost_per_unit: "" })); }}
+                  className={`h-9 bg-white/5 border-white/10 text-sm ${fieldError(errors, "cost_per_unit") ? "border-red-500" : ""}`} />
                 {fieldError(errors, "cost_per_unit") && <p className="text-xs text-red-400">{fieldError(errors, "cost_per_unit")}</p>}
               </div>
             </div>
@@ -173,6 +485,14 @@ export default function Inventory() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Bulk Upload Modal */}
+      {showBulkUpload && (
+        <InventoryBulkUploadModal
+          onClose={() => setShowBulkUpload(false)}
+          onImported={() => invalidate("InventoryItem")}
+        />
       )}
     </div>
   );

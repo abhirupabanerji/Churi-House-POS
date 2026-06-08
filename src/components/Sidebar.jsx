@@ -151,7 +151,11 @@ export default function Sidebar() {
           </div>
         )}
         <button
-          onClick={() => { clearSession(); base44.auth.logout(); }}
+          onClick={() => {
+  clearSession();
+  localStorage.removeItem("local_AppUser");
+  window.location.href = "/";
+}}
           className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/10 w-full transition-all"
         >
           <LogOut className="w-[15px] h-[15px]" />

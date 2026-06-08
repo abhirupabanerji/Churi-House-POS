@@ -19,6 +19,14 @@ const SAMPLE_ORDER = {
 export default function ReceiptPreview({ settings, order = SAMPLE_ORDER, onClose }) {
   const handlePrint = () => window.print();
 
+  const currentUser = (() => {
+    try {
+      const val = JSON.parse(localStorage.getItem("ch_AppUser") || "{}");
+      return Array.isArray(val) ? val[0] : val;
+    } catch { return {}; }
+  })();
+  const billedBy = currentUser.full_name || currentUser.username || "—";
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
       <div className="glass-strong rounded-2xl p-6 w-full max-w-sm mx-4">
@@ -63,6 +71,13 @@ export default function ReceiptPreview({ settings, order = SAMPLE_ORDER, onClose
             {settings?.show_discount && <div className="flex justify-between text-green-600"><span>Discount</span><span>-₹{order.discount}</span></div>}
             {settings?.show_gst && <div className="flex justify-between text-gray-600"><span>GST (5%)</span><span>₹{order.tax.toFixed(1)}</span></div>}
             <div className="flex justify-between font-bold text-sm pt-1 border-t border-gray-300"><span>TOTAL</span><span>₹{order.total.toFixed(0)}</span></div>
+          </div>
+
+          <div className="border-t border-dashed border-gray-300 pt-2">
+            <div className="flex justify-between text-[10px] text-gray-500">
+              <span>Billed by</span>
+              <span>{billedBy}</span>
+            </div>
           </div>
 
           <div className="text-center border-t border-dashed border-gray-300 pt-2 space-y-0.5">

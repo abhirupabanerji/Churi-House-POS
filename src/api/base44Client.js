@@ -1,6 +1,11 @@
 function makeLocalEntity(entityName) {
-  const key = `local_${entityName}`;
-  const read = () => { try { return JSON.parse(localStorage.getItem(key) || "[]"); } catch { return []; } };
+  const key = `ch_${entityName}`;
+
+  const read = () => {
+    try { return JSON.parse(localStorage.getItem(key) || "[]"); }
+    catch { return []; }
+  };
+
   const write = (rows) => localStorage.setItem(key, JSON.stringify(rows));
 
   return {
@@ -10,34 +15,60 @@ function makeLocalEntity(entityName) {
         const desc = sort.startsWith("-");
         const field = desc ? sort.slice(1) : sort;
         rows = rows.sort((a, b) => {
-          const av = a[field] ?? ""; const bv = b[field] ?? "";
-          return desc ? String(bv).localeCompare(String(av)) : String(av).localeCompare(String(bv));
+          const av = a[field] ?? "";
+          const bv = b[field] ?? "";
+          return desc
+            ? String(bv).localeCompare(String(av))
+            : String(av).localeCompare(String(bv));
         });
       }
       return rows.slice(0, limit);
     },
+
     async filter(filter = {}, sort, limit = 100) {
-      const rows = await this.list(sort, limit);
-      return rows.filter(row => Object.entries(filter).every(([k, v]) => row[k] === v));
+      let rows = await this.list(sort, limit);
+      return rows.filter(row =>
+        Object.entries(filter).every(([k, v]) => {
+          // support status__in: ["pending","preparing"]
+          if (k.endsWith("__in") && Array.isArray(v)) {
+            const field = k.replace("__in", "");
+            return v.includes(row[field]);
+          }
+          return row[k] === v;
+        })
+      );
     },
+
     async create(data) {
       const rows = read();
       const now = new Date().toISOString();
-      const item = { id: crypto.randomUUID(), ...data, created_date: now, updated_date: now };
+      const item = {
+        id: crypto.randomUUID(),
+        ...data,
+        created_date: now,
+        updated_date: now,
+      };
       rows.push(item);
       write(rows);
       return item;
     },
+
     async update(id, data) {
       const rows = read();
-      const updated = rows.map(row => row.id === id ? { ...row, ...data, updated_date: new Date().toISOString() } : row);
+      const updated = rows.map(row =>
+        row.id === id
+          ? { ...row, ...data, updated_date: new Date().toISOString() }
+          : row
+      );
       write(updated);
       return updated.find(row => row.id === id);
     },
+
     async delete(id) {
       write(read().filter(row => row.id !== id));
       return true;
     },
+
     subscribe() { return () => {}; },
   };
 }
@@ -47,9 +78,11 @@ export const base44 = {
     get: (_, entityName) => makeLocalEntity(entityName),
   }),
   auth: {
-    async me() { return { email: "local@app.com", full_name: "Local User" }; },
+    async me() {
+      return { email: "local@app.com", full_name: "Local User" };
+    },
     logout() {},
-    redirectToLogin() {},
+    redirectToLogin() { window.location.href = "/login"; },
   },
   integrations: {
     Core: {

@@ -16,7 +16,7 @@ const statusConfig = {
   cancelled: { color: "bg-red-500/20 text-red-400 border-red-500/30", icon: XCircle, label: "Cancelled" },
 };
 
-const typeLabels = { dine_in: "Dine-in", takeaway: "Takeaway", delivery: "Delivery", swiggy: "Swiggy", zomato: "Zomato" };
+const typeLabels = { dine_in: "Dine-in", takeaway: "Takeaway", swiggy: "Swiggy", zomato: "Zomato" };
 
 export default function Orders() {
   const [filter, setFilter] = useState("all");
@@ -76,7 +76,7 @@ export default function Orders() {
           </div>
         </div>
         <div className="flex gap-1 glass rounded-xl p-1 flex-wrap">
-          {[["all","All"],["dine_in","Walk-in"],["takeaway","Takeaway"],["swiggy","Swiggy"],["zomato","Zomato"],["delivery","Delivery"]].map(([v, l]) => (
+          {[["all","All"],["dine_in","Walk-in"],["takeaway","Takeaway"],["swiggy","Swiggy"],["zomato","Zomato"],].map(([v, l]) => (
             <button key={v} onClick={() => setFilter(v)} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${filter === v ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>{l}</button>
           ))}
         </div>
