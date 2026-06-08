@@ -2,19 +2,40 @@ import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Plus, Minus, Trash2, ShoppingCart, CreditCard, Banknote, Smartphone, Receipt, ArrowLeft, Loader2, X } from "lucide-react";
+import { Search, Plus, Minus, Trash2, ShoppingCart, CreditCard, Banknote, Smartphone, Receipt, ArrowLeft, Loader2, X, Printer } from "lucide-react";
 import { Link } from "react-router-dom";
 import ReceiptPreview from "@/components/ReceiptPreview";
 import { logAudit } from "@/lib/auditLog";
 import { fieldError } from "@/lib/formValidation";
 
-const raw = JSON.parse(localStorage.getItem("local_AppUser") || "{}");
-const currentUser = Array.isArray(raw) ? raw[0] : raw;
 const LS_CAT_KEY = "menu_custom_categories";
 const DEFAULT_CATEGORIES = ["Starters", "Main Course", "Biryani", "Breads", "Desserts", "Beverages"];
 
 function loadCustomCategories() {
   try { return JSON.parse(localStorage.getItem(LS_CAT_KEY) || "[]"); } catch { return []; }
+}
+
+function getCurrentUser() {
+  try {
+    const keys = ["local_AppUser", "AppUser", "ch_AppUser", "user", "currentUser"];
+    for (const key of keys) {
+      const val = localStorage.getItem(key);
+      if (val) {
+        const parsed = JSON.parse(val);
+        if (Array.isArray(parsed)) {
+          // Find most recently logged in user
+          const sorted = [...parsed].sort((a, b) => 
+            new Date(b.last_login || 0) - new Date(a.last_login || 0)
+          );
+          const user = sorted[0];
+          if (user && (user.full_name || user.username || user.email)) return user;
+        } else {
+          if (parsed && (parsed.full_name || parsed.username || parsed.email)) return parsed;
+        }
+      }
+    }
+    return {};
+  } catch { return {}; }
 }
 
 export default function POS() {
@@ -34,6 +55,8 @@ export default function POS() {
   const [voidReason, setVoidReason] = useState("");
   const [orderErrors, setOrderErrors] = useState({});
   const [voidError, setVoidError] = useState("");
+  const [branchSettings, setBranchSettings] = useState(null);
+  const [printOnSave, setPrintOnSave] = useState(false);
 
   useEffect(() => {
     base44.entities.MenuItem.list("name", 500).then(items => {
@@ -43,6 +66,12 @@ export default function POS() {
 
     base44.entities.Advertisement.filter({ is_active: true, placement: "pos_screen" })
       .then(ads => setPosAd(ads[0] || null)).catch(() => {});
+
+    base44.entities.BranchSettings.list("branch_name", 100)
+      .then(all => {
+        const match = all.find(r => r.branch_name === "Main Branch") || all[0];
+        if (match) setBranchSettings(match);
+      }).catch(() => {});
   }, []);
 
   const customCats = loadCustomCategories();
@@ -73,24 +102,27 @@ export default function POS() {
   const tax = Math.round(subtotal * 0.05);
   const total = subtotal + tax;
 
-  const placeOrder = async (paymentMethod, print = false) => {
+  const placeOrder = async (paymentMethod) => {
+    const currentUser = getCurrentUser();
     const orderNum = `CH-${Date.now().toString(36).toUpperCase()}`;
     const order = {
-  order_number: orderNum,
-  type: orderType,
-  status: "pending",
-  items: cart.map(c => ({ name: c.name, quantity: c.qty, price: c.price })),
-  subtotal, tax, discount: 0, total,
-  payment_method: paymentMethod,
-  table_number: tableNum,
-  customer_name: customerName,
-  customer_phone: customerPhone,
-  billed_by: currentUser.full_name || currentUser.username || "Unknown", 
-};
+      order_number: orderNum,
+      type: orderType,
+      status: "pending",
+      items: cart.map(c => ({ name: c.name, quantity: c.qty, price: c.price })),
+      subtotal, tax, discount: 0, total,
+      payment_method: paymentMethod,
+      table_number: tableNum,
+      customer_name: customerName,
+      customer_phone: customerPhone,
+      billed_by: currentUser.full_name || currentUser.username || currentUser.email || "Unknown",
+    };
     await base44.entities.Order.create(order);
     logAudit({ action: `Order placed: ${orderNum}`, type: "order", details: `${paymentMethod} | ₹${total} | ${orderType}` });
-    setLastOrder(order);
-    if (print) setShowReceipt(true);
+    if (printOnSave) {
+      setLastOrder(order);
+      setShowReceipt(true);
+    }
     setCart([]);
     setTableNum("");
     setCustomerName("");
@@ -98,12 +130,13 @@ export default function POS() {
   };
 
   const handleVoidCart = async () => {
-    if (!voidReason.trim()) return;
+    if (!voidReason.trim()) { setVoidError("Reason is required."); return; }
+    const currentUser = getCurrentUser();
     const orderNum = `VOID-${Date.now().toString(36).toUpperCase()}`;
     await base44.entities.DeletedOrder.create({
       order_number: orderNum,
       order_data: JSON.stringify({ items: cart, subtotal, tax, total, orderType, tableNum, customerName }),
-      deleted_by: currentUser.full_name || currentUser.username || "POS User",
+      deleted_by: currentUser.full_name || currentUser.username || currentUser.email || "POS User",
       deleted_at: new Date().toISOString(),
       bill_generated: false,
       reason: voidReason,
@@ -118,6 +151,18 @@ export default function POS() {
     setShowVoidModal(false);
   };
 
+  const defaultSettings = {
+    receipt_header: "Churi House — Main Branch",
+    receipt_footer: "Thank you!",
+    show_gst: true,
+    show_discount: true,
+    show_branch_address: true,
+    show_phone: true,
+    show_order_type: true,
+    show_table_number: true,
+    show_payment_method: true,
+  };
+
   return (
     <div className="flex flex-col h-screen">
       {posAd && (
@@ -130,23 +175,14 @@ export default function POS() {
         </div>
       )}
 
-      {lastOrder && (
-        <ReceiptPreview
-          order={lastOrder}
-          settings={{ receipt_header: "Churi House — Main Branch", receipt_footer: "Thank you!", show_gst: true, show_discount: true, show_branch_address: true }}
-          onClose={() => { setLastOrder(null); setShowReceipt(false); }}
-        />
-      )}
-
       {showReceipt && lastOrder && (
         <ReceiptPreview
           order={lastOrder}
-          settings={{ receipt_header: "Churi House — Main Branch", receipt_footer: "Thank you!", show_gst: true, show_discount: false, show_branch_address: true }}
+          settings={branchSettings || defaultSettings}
           onClose={() => { setShowReceipt(false); setLastOrder(null); }}
         />
       )}
 
-      {/* Void Cart Modal */}
       {showVoidModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="glass-strong rounded-2xl p-6 w-full max-w-sm mx-4 space-y-4">
@@ -170,7 +206,6 @@ export default function POS() {
         </div>
       )}
 
-      {/* Top Bar */}
       <div className="flex items-center gap-3 px-4 py-2.5 bg-sidebar border-b border-sidebar-border shrink-0">
         <Link to="/" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="w-4 h-4" /> Back
@@ -181,7 +216,6 @@ export default function POS() {
       </div>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Menu Side */}
         <div className="flex-1 flex flex-col p-4 overflow-hidden">
           <div className="flex items-center gap-3 mb-4">
             <div className="relative flex-1">
@@ -190,9 +224,21 @@ export default function POS() {
                 className="pl-10 h-10 bg-white/5 border-white/10" />
             </div>
             <div className="flex gap-1 glass rounded-xl p-1">
-              {[["dine_in", "Dine-in"], ["takeaway", "Takeaway"], ["swiggy", "Swiggy"], ["zomato", "Zomato"]].map(([v, l]) => (
+              {[
+                ["dine_in", "🍽️ Dine-in"],
+                ["takeaway", "🥡 Takeaway"],
+                ["swiggy", "🛵 Swiggy"],
+                ["zomato", "🔴 Zomato"],
+              ].map(([v, l]) => (
                 <button key={v} onClick={() => { setOrderType(v); setOrderErrors({}); }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${orderType === v ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    orderType === v
+                      ? v === "swiggy" ? "bg-orange-500 text-white shadow-md"
+                      : v === "zomato" ? "bg-red-500 text-white shadow-md"
+                      : v === "takeaway" ? "bg-blue-500 text-white shadow-md"
+                      : "bg-primary text-primary-foreground shadow-md"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}>
                   {l}
                 </button>
               ))}
@@ -237,7 +283,6 @@ export default function POS() {
           )}
         </div>
 
-        {/* Cart Side */}
         <div className="w-80 xl:w-96 bg-sidebar border-l border-sidebar-border flex flex-col">
           <div className="p-4 border-b border-sidebar-border">
             <div className="flex items-center gap-2">
@@ -298,24 +343,35 @@ export default function POS() {
                 <span>Total</span><span className="text-primary">₹{total}</span>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <Button onClick={() => placeOrder("cash")} disabled={cart.length === 0}
-                className="h-10 bg-primary hover:bg-primary/90 text-xs font-semibold glow-orange">
-                <Banknote className="w-4 h-4 mr-1" /> Cash
-              </Button>
-              <Button onClick={() => placeOrder("card")} disabled={cart.length === 0}
-                variant="outline" className="h-10 bg-white/5 border-white/10 text-xs font-semibold">
-                <CreditCard className="w-4 h-4 mr-1" /> Card
-              </Button>
-              <Button onClick={() => placeOrder("upi")} disabled={cart.length === 0}
-                variant="outline" className="h-10 bg-white/5 border-white/10 text-xs font-semibold">
-                <Smartphone className="w-4 h-4 mr-1" /> UPI
-              </Button>
-              <Button onClick={() => placeOrder("cash", true)} disabled={cart.length === 0}
-                variant="outline" className="h-10 bg-white/5 border-white/10 text-xs font-semibold">
-                <Receipt className="w-4 h-4 mr-1" /> Print
-              </Button>
+
+            {/* Print toggle */}
+            <div className="flex items-center justify-between px-1">
+              <div className="flex items-center gap-2">
+                <Printer className="w-4 h-4 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">Print receipt after order</span>
+              </div>
+              <button
+  onClick={() => setPrintOnSave(p => !p)}
+  className={`w-10 h-5 rounded-full transition-all relative ${printOnSave ? "bg-primary" : "bg-gray-300"}`}>
+  <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${printOnSave ? "left-5" : "left-0.5"}`} />
+</button>
             </div>
+
+            <div className="grid grid-cols-3 gap-2">
+            <Button onClick={() => placeOrder("cash")} disabled={cart.length === 0}
+              variant="outline" className="h-10 bg-white/5 border-white/10 text-xs font-semibold hover:bg-primary hover:text-white hover:border-primary transition-all">
+              <Banknote className="w-4 h-4 mr-1" /> Cash
+            </Button>
+            <Button onClick={() => placeOrder("card")} disabled={cart.length === 0}
+              variant="outline" className="h-10 bg-white/5 border-white/10 text-xs font-semibold hover:bg-primary hover:text-white hover:border-primary transition-all">
+              <CreditCard className="w-4 h-4 mr-1" /> Card
+            </Button>
+            <Button onClick={() => placeOrder("upi")} disabled={cart.length === 0}
+              variant="outline" className="h-10 bg-white/5 border-white/10 text-xs font-semibold hover:bg-primary hover:text-white hover:border-primary transition-all">
+              <Smartphone className="w-4 h-4 mr-1" /> UPI
+            </Button>
+          </div>
+
             <Button onClick={() => cart.length > 0 ? setShowVoidModal(true) : null} disabled={cart.length === 0}
               variant="outline" className="w-full h-9 bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20 text-xs font-semibold">
               <Trash2 className="w-4 h-4 mr-1" /> Void Cart

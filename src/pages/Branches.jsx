@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { fieldError, nonNegativeNumber, required } from "@/lib/formValidation";
+import { fieldError, nonNegativeNumber, positiveNumber, required } from "@/lib/formValidation";
 
 const statusStyle = { active: "bg-green-500/10 text-green-400", inactive: "bg-red-500/10 text-red-400", maintenance: "bg-yellow-500/10 text-yellow-400" };
 
@@ -27,7 +27,17 @@ export default function Branches() {
     required(next, "name", form.name);
     required(next, "code", form.code);
     required(next, "city", form.city);
-    nonNegativeNumber(next, "tables_count", form.tables_count);
+    required(next, "manager_email", form.manager_email);
+    required(next, "phone", form.phone);
+    required(next, "tables_count", form.tables_count);
+    positiveNumber(next, "tables_count", form.tables_count);
+    if (form.phone && !/^\+?[0-9\s\-()]{7,15}$/.test(form.phone.trim())) {
+      next.phone = "Enter a valid phone number.";
+    }
+    if (form.manager_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.manager_email.trim())) {
+      next.manager_email = "Enter a valid email address.";
+    }
+    console.log("Errors:", next, "Form:", form);
     setErrors(next);
     return Object.keys(next).length === 0;
   };
@@ -90,7 +100,7 @@ export default function Branches() {
           <div className="glass-strong rounded-2xl p-6 w-full max-w-lg mx-4 space-y-3 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between"><h2 className="text-lg font-bold text-foreground">{editing?"Edit":"New"} Branch</h2><button onClick={() => setShowForm(false)}><X className="w-5 h-5 text-muted-foreground" /></button></div>
             <div className="grid grid-cols-2 gap-3">
-              {[ ["name","Branch Name *"], ["code","Branch Code *"], ["franchise","Franchise Name"], ["city","City *"], ["address","Address"], ["phone","Phone"], ["manager_email","Manager Email"] ].map(([k,l]) => (
+              {[ ["name","Branch Name *"], ["code","Branch Code *"], ["franchise","Franchise Name"], ["city","City *"], ["address","Address"], ["phone","Phone *"], ["manager_email","Manager Email *"] ].map(([k,l]) => (
                 <div key={k} className={`space-y-1.5 ${["address","manager_email","franchise"].includes(k)?"col-span-2":""}`}>
                   <Label className="text-xs">{l}</Label>
                   <Input value={form[k]} onChange={e=>{ setForm(f=>({...f,[k]:e.target.value})); setErrors(er=>({...er,[k]:""})); }} className={`h-9 bg-white/5 border-white/10 text-sm ${fieldError(errors, k) ? "border-red-500" : ""}`} />

@@ -3,8 +3,10 @@ import { Button } from "@/components/ui/button";
 
 const SAMPLE_ORDER = {
   order_number: "CH-A1B2C",
-  type: "Dine-in",
+  type: "dine_in",
   table_number: "T-08",
+  customer_name: "John Doe",
+  customer_phone: "9876543210",
   items: [
     { name: "Butter Chicken", quantity: 2, price: 320 },
     { name: "Garlic Naan", quantity: 4, price: 60 },
@@ -16,16 +18,33 @@ const SAMPLE_ORDER = {
   total: 1157.1,
 };
 
+const ORDER_TYPE_LABELS = {
+  dine_in: "Dine-in",
+  takeaway: "Takeaway",
+  swiggy: "Swiggy",
+  zomato: "Zomato",
+};
+
+const ORDER_TYPE_COLORS = {
+  dine_in: "bg-blue-100 text-blue-700",
+  takeaway: "bg-purple-100 text-purple-700",
+  swiggy: "bg-orange-100 text-orange-700",
+  zomato: "bg-red-100 text-red-700",
+};
+
 export default function ReceiptPreview({ settings, order = SAMPLE_ORDER, onClose }) {
   const handlePrint = () => window.print();
 
   const currentUser = (() => {
     try {
-      const val = JSON.parse(localStorage.getItem("ch_AppUser") || "{}");
+      const val = JSON.parse(localStorage.getItem("local_AppUser") || "{}");
       return Array.isArray(val) ? val[0] : val;
     } catch { return {}; }
   })();
-  const billedBy = currentUser.full_name || currentUser.username || "—";
+
+  const billedBy = order.billed_by || currentUser.full_name || currentUser.username || "—";
+  const orderTypeLabel = ORDER_TYPE_LABELS[order.type] || order.type;
+  const orderTypeColor = ORDER_TYPE_COLORS[order.type] || "bg-gray-100 text-gray-700";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
@@ -33,30 +52,62 @@ export default function ReceiptPreview({ settings, order = SAMPLE_ORDER, onClose
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-bold text-foreground">Receipt Preview</h2>
           <div className="flex gap-2">
-            <Button size="sm" variant="outline" className="h-7 text-xs bg-white/5 border-white/10" onClick={handlePrint}><Printer className="w-3 h-3 mr-1" /> Print</Button>
+            <Button size="sm" variant="outline" className="h-7 text-xs bg-white/5 border-white/10" onClick={handlePrint}>
+              <Printer className="w-3 h-3 mr-1" /> Print
+            </Button>
             <button onClick={onClose}><X className="w-5 h-5 text-muted-foreground" /></button>
           </div>
         </div>
 
         {/* Receipt Paper */}
         <div className="bg-white text-black rounded-xl p-5 font-mono text-xs space-y-2 print:shadow-none" id="receipt-content">
-          {settings?.receipt_logo_url && <img src={settings.receipt_logo_url} className="h-10 mx-auto mb-2" alt="logo" />}
+          {settings?.receipt_logo_url && (
+            <img src={settings.receipt_logo_url} className="h-10 mx-auto mb-2" alt="logo" />
+          )}
+
+          {/* Header */}
           <div className="text-center border-b border-dashed border-gray-300 pb-2">
             <p className="font-bold text-sm">{settings?.receipt_header || "Churi House"}</p>
-            {settings?.show_branch_address && <p className="text-gray-500 text-[10px]">123 Main Street, Hyderabad</p>}
-            <p className="text-gray-500 text-[10px]">Tel: +91 98765 43210</p>
-            {settings?.show_gst && <p className="text-gray-500 text-[10px]">GSTIN: 36AABCU9603R1ZX</p>}
+            {settings?.tagline && <p className="text-gray-400 text-[10px] italic">{settings.tagline}</p>}
+            {settings?.show_branch_address && (
+              <p className="text-gray-500 text-[10px]">{settings?.address || "Hyderabad, Telangana"}</p>
+            )}
+            {settings?.show_phone && (
+              <p className="text-gray-500 text-[10px]">Tel: {settings?.phone || "+91 90000 00000"}</p>
+            )}
+            {settings?.show_gst && (
+              <p className="text-gray-500 text-[10px]">GSTIN: 36AABCU9603R1ZX</p>
+            )}
           </div>
 
+          {/* Order Info */}
           <div className="flex justify-between text-[10px] text-gray-500">
             <span>Order #{order.order_number}</span>
             <span>{new Date().toLocaleString()}</span>
           </div>
-          <div className="flex justify-between text-[10px] text-gray-500">
-            <span>{order.type} | {order.table_number}</span>
-            {settings?.show_server_name && <span>Server: Ramesh</span>}
-          </div>
 
+          {/* Order Type Badge + Table */}
+          {settings?.show_order_type && (
+            <div className="flex items-center gap-2 text-[10px]">
+              <span className={`px-2 py-0.5 rounded-full font-semibold text-[9px] ${orderTypeColor}`}>
+                {orderTypeLabel}
+              </span>
+              {order.table_number && (
+                <span className="text-gray-500">Table: {order.table_number}</span>
+              )}
+              {settings?.show_server_name && <span className="text-gray-500 ml-auto">Server: Ramesh</span>}
+            </div>
+          )}
+
+          {/* Customer Info */}
+          {(order.customer_name || order.customer_phone) && (
+            <div className="text-[10px] text-gray-500 border-b border-dashed border-gray-200 pb-1">
+              {order.customer_name && <div>Customer: <span className="text-black font-medium">{order.customer_name}</span></div>}
+              {order.customer_phone && <div>Phone: <span className="text-black">{order.customer_phone}</span></div>}
+            </div>
+          )}
+
+          {/* Items */}
           <div className="border-t border-dashed border-gray-300 pt-2 space-y-1">
             {order.items.map((item, i) => (
               <div key={i} className="flex justify-between">
@@ -66,13 +117,24 @@ export default function ReceiptPreview({ settings, order = SAMPLE_ORDER, onClose
             ))}
           </div>
 
+          {/* Totals */}
           <div className="border-t border-dashed border-gray-300 pt-2 space-y-0.5">
             <div className="flex justify-between text-gray-600"><span>Subtotal</span><span>₹{order.subtotal.toFixed(0)}</span></div>
-            {settings?.show_discount && <div className="flex justify-between text-green-600"><span>Discount</span><span>-₹{order.discount}</span></div>}
-            {settings?.show_gst && <div className="flex justify-between text-gray-600"><span>GST (5%)</span><span>₹{order.tax.toFixed(1)}</span></div>}
-            <div className="flex justify-between font-bold text-sm pt-1 border-t border-gray-300"><span>TOTAL</span><span>₹{order.total.toFixed(0)}</span></div>
+            {settings?.show_discount && (
+              <div className="flex justify-between text-green-600"><span>Discount</span><span>-₹{order.discount ?? 0}</span></div>
+            )}
+            {settings?.show_gst && (
+              <div className="flex justify-between text-gray-600"><span>GST (5%)</span><span>₹{Number(order.tax).toFixed(1)}</span></div>
+            )}
+            {settings?.show_payment_method && order.payment_method && (
+              <div className="flex justify-between text-gray-500 text-[10px]"><span>Payment</span><span className="capitalize">{order.payment_method}</span></div>
+            )}
+            <div className="flex justify-between font-bold text-sm pt-1 border-t border-gray-300">
+              <span>TOTAL</span><span>₹{Number(order.total).toFixed(0)}</span>
+            </div>
           </div>
 
+          {/* Billed By */}
           <div className="border-t border-dashed border-gray-300 pt-2">
             <div className="flex justify-between text-[10px] text-gray-500">
               <span>Billed by</span>
@@ -80,9 +142,12 @@ export default function ReceiptPreview({ settings, order = SAMPLE_ORDER, onClose
             </div>
           </div>
 
+          {/* Footer */}
           <div className="text-center border-t border-dashed border-gray-300 pt-2 space-y-0.5">
             <p className="font-semibold">{settings?.receipt_footer || "Thank you!"}</p>
-            {settings?.receipt_note && <p className="text-gray-400 text-[9px]">{settings.receipt_note}</p>}
+            {settings?.receipt_note && (
+              <p className="text-gray-400 text-[9px]">{settings.receipt_note}</p>
+            )}
           </div>
         </div>
       </div>

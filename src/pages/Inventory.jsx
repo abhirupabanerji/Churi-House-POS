@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { fieldError, nonNegativeNumber, required } from "@/lib/formValidation";
+import { fieldError, nonNegativeNumber, positiveNumber, required } from "@/lib/formValidation";
 import * as XLSX from "xlsx";
 
 const statusStyle = {
@@ -312,7 +312,7 @@ export default function Inventory() {
     required(next, "unit", form.unit);
     nonNegativeNumber(next, "stock", form.stock);
     nonNegativeNumber(next, "min_level", form.min_level);
-    nonNegativeNumber(next, "cost_per_unit", form.cost_per_unit);
+    positiveNumber(next, "cost_per_unit", form.cost_per_unit);
     setErrors(next);
     return Object.keys(next).length === 0;
   };

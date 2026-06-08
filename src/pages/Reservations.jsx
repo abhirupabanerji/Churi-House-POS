@@ -27,7 +27,9 @@ export default function Reservations() {
   const validateRes = () => {
     const errs = {};
     if (!form.guest_name.trim()) errs.guest_name = "Guest name is required.";
-    if (form.phone && !/^\d{10}$/.test(form.phone)) errs.phone = "Phone must be exactly 10 digits.";
+    if (!form.phone.trim()) errs.phone = "Phone is required.";
+    else if (!/^\d{10}$/.test(form.phone)) errs.phone = "Phone must be exactly 10 digits.";
+    if (!form.table_number.trim()) errs.table_number= "Table number is required.";
     if (!form.date) errs.date = "Date is required.";
     if (!form.time) errs.time = "Time is required.";
     if (!form.guests || form.guests < 1) errs.guests = "At least 1 guest required.";
@@ -109,8 +111,9 @@ export default function Reservations() {
                 {errors.phone && <p className="text-xs text-red-400">{errors.phone}</p>}
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Table Number</Label>
-                <Input value={form.table_number} onChange={e => setForm(f=>({...f,table_number:e.target.value}))} className="h-9 bg-white/5 border-white/10 text-sm" />
+                <Label className="text-xs">Table Number *</Label>
+                <Input value={form.table_number} onChange={e => { setForm(f=>({...f,table_number:e.target.value})); setErrors(e2=>({...e2,table_number:""})); }} className={`h-9 bg-white/5 border-white/10 text-sm ${errors.table_number?"border-red-500":""}`} />
+                {errors.table_number && <p className="text-xs text-red-400">{errors.table_number}</p>}
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Date *</Label>

@@ -12,6 +12,7 @@ const SHIFTS = ["Morning (8AM-4PM)","Evening (4PM-12AM)","Night (12AM-8AM)"];
 
 export default function AttendanceShifts() {
   const [items, setItems] = useState([]);
+  const [staffList, setStaffList] = useState([]);  // NEW
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -19,7 +20,13 @@ export default function AttendanceShifts() {
   const [errors, setErrors] = useState({});
 
   const load = () => base44.entities.Attendance.list("-created_date", 100).then(d => { setItems(d); setLoading(false); }).catch(() => setLoading(false));
-  useEffect(() => { load(); }, []);
+  
+  const loadStaff = () => 
+  base44.entities.User.list("full_name", 200)
+    .then(d => setStaffList(d))
+    .catch(() => {});
+  
+  useEffect(() => { load(); loadStaff(); }, []);
 
   const openNew = () => { setEditing(null); setErrors({}); setForm({ staff_name: "", role: "Cashier", shift: "Morning (8AM-4PM)", date: new Date().toISOString().split("T")[0], check_in: "", check_out: "", status: "present" }); setShowForm(true); };
   const openEdit = (a) => { setEditing(a); setErrors({}); setForm({ staff_name: a.staff_name, role: a.role||"Cashier", shift: a.shift, date: a.date, check_in: a.check_in||"", check_out: a.check_out||"", status: a.status }); setShowForm(true); };
@@ -74,7 +81,22 @@ export default function AttendanceShifts() {
           <div className="glass-strong rounded-2xl p-6 w-full max-w-md mx-4 space-y-3">
             <div className="flex items-center justify-between"><h2 className="text-lg font-bold text-foreground">{editing?"Edit":"New"} Attendance Record</h2><button onClick={() => setShowForm(false)}><X className="w-5 h-5 text-muted-foreground" /></button></div>
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5 col-span-2"><Label className="text-xs">Staff Name *</Label><Input value={form.staff_name} onChange={e=>{ setForm(f=>({...f,staff_name:e.target.value})); setErrors(er=>({...er,staff_name:""})); }} className={`h-9 bg-white/5 border-white/10 text-sm ${fieldError(errors, "staff_name") ? "border-red-500" : ""}`} />{fieldError(errors, "staff_name") && <p className="text-xs text-red-400">{fieldError(errors, "staff_name")}</p>}</div>
+
+              <div className="space-y-1.5 col-span-2">
+                <Label className="text-xs">Staff Name *</Label>
+                <select
+                  value={form.staff_name}
+                  onChange={e => { setForm(f => ({ ...f, staff_name: e.target.value })); setErrors(er => ({ ...er, staff_name: "" })); }}
+                  className={`w-full h-9 rounded-md bg-secondary border text-sm px-3 text-foreground ${fieldError(errors, "staff_name") ? "border-red-500" : "border-white/10"}`}
+                >
+                 <option value="">— Select Staff —</option>
+                  {staffList.map(s => (
+                    <option key={s.id} value={s.full_name}>{s.full_name}</option>
+                  ))}
+                </select>
+                {fieldError(errors, "staff_name") && <p className="text-xs text-red-400">{fieldError(errors, "staff_name")}</p>}
+              </div>
+
               <div className="space-y-1.5"><Label className="text-xs">Role</Label>
                 <select value={form.role} onChange={e=>setForm(f=>({...f,role:e.target.value}))} className="w-full h-9 rounded-md bg-secondary border border-white/10 text-sm px-3 text-foreground">
                   {ROLES.map(r=><option key={r} value={r}>{r}</option>)}

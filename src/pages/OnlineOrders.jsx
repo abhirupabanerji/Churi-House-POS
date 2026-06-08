@@ -6,7 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import PlatformSettings from "@/components/online/PlatformSettings";
 import { fieldError, positiveNumber, required } from "@/lib/formValidation";
-
+import { softDelete } from "@/lib/softDelete";
+import { logAudit } from "@/lib/auditLog";
+import { toast } from "sonner";
 const PLATFORMS = [
   { name: "Swiggy", orders: 38, revenue: "₹28,400", status: "connected", color: "text-orange-400" },
   { name: "Zomato", orders: 24, revenue: "₹18,200", status: "connected", color: "text-red-400" },
@@ -55,8 +57,28 @@ export default function OnlineOrders() {
   };
 
   const updateStatus = async (id, status) => { await base44.entities.Order.update(id, { status }); setOrders(prev => prev.map(o => o.id === id ? { ...o, status } : o)); };
-  const remove = async (id) => { if (confirm("Delete order?")) { await base44.entities.Order.delete(id); setOrders(prev => prev.filter(o => o.id !== id)); } };
-
+  const remove = async (o) => {
+    if (!confirm(`Delete order ${o.order_number}?`)) return;
+    try {
+      await softDelete({
+        module: "Online Orders",
+        id: o.id,
+        name: o.order_number,
+        data: o,
+      });
+      await base44.entities.Order.delete(o.id);
+      logAudit({
+        action: `Online order deleted: ${o.order_number}`,
+        type: "order",
+        details: `Platform: ${o.type} | ₹${o.total} | Customer: ${o.customer_name || "—"}`,
+      });
+      toast.success(`🗑️ Order ${o.order_number} moved to Recycle Bin.`);
+      setOrders(prev => prev.filter(ord => ord.id !== o.id));
+    } catch (err) {
+      toast.error("Failed to delete order.");
+      console.error(err);
+    }
+  };
   return (
     <div className="p-6 space-y-5">
       <div className="flex items-center justify-between">
@@ -116,7 +138,9 @@ export default function OnlineOrders() {
                   <td className="p-4 flex gap-1">
                     {o.status === "pending" && <Button size="sm" className="h-7 text-[10px] bg-blue-600 hover:bg-blue-700" onClick={() => updateStatus(o.id, "preparing")}>Start</Button>}
                     {o.status === "preparing" && <Button size="sm" className="h-7 text-[10px] bg-green-600 hover:bg-green-700" onClick={() => updateStatus(o.id, "ready")}>Ready</Button>}
-                    <Button size="sm" variant="outline" className="h-7 px-2 bg-red-500/10 border-red-500/20 text-red-400" onClick={() => remove(o.id)}><Trash2 className="w-3 h-3" /></Button>
+                    <Button size="sm" variant="outline" className="h-7 px-2 bg-red-500/10 border-red-500/20 text-red-400" onClick={() => remove(o)}>
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
                   </td>
                 </tr>
               ))}

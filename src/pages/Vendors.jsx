@@ -37,8 +37,10 @@ export default function Vendors() {
   const validateVendor = () => {
     const errs = {};
     if (!form.name.trim()) errs.name = "Vendor name is required.";
-    if (form.phone && !/^\d{10}$/.test(form.phone)) errs.phone = "Phone must be exactly 10 digits.";
-    if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errs.email = "Enter a valid email address.";
+    if (!form.phone.trim()) errs.phone = "Phone is required.";
+    else if (!/^\d{10}$/.test(form.phone)) errs.phone = "Phone must be exactly 10 digits.";
+    if (!form.email.trim()) errs.email = "Email is required.";
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errs.email = "Enter a valid email address.";
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -116,7 +118,7 @@ export default function Vendors() {
               <button onClick={() => setShowForm(false)}><X className="w-5 h-5 text-muted-foreground" /></button>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              {[["name","Vendor Name *","text"],["phone","Phone","text"],["email","Email","email"],["gstin","GSTIN","text"],["outstanding_balance","Outstanding Balance","number"],["credit_limit","Credit Limit","number"],["payment_terms","Payment Terms","text"],["address","Address","text"]].map(([k,l,t]) => (
+              {[["name","Vendor Name *","text"],["phone","Phone *","text"],["email","Email *","email"],["gstin","GSTIN","text"],["outstanding_balance","Outstanding Balance","number"],["credit_limit","Credit Limit","number"],["payment_terms","Payment Terms","text"],["address","Address","text"]].map(([k,l,t]) => (
                 <div key={k} className={`space-y-1.5 ${k === "address" ? "col-span-2" : ""}`}>
                   <Label className="text-xs">{l}</Label>
                   <Input

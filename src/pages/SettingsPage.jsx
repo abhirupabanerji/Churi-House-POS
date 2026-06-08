@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { CreditCard, Palette, Brush, Database, Mail, Globe, Upload, X, Loader2, Sun, Moon } from "lucide-react";
+import { CreditCard, Palette, Brush, Database, Mail, Globe, Upload, X, Loader2, Sun, Moon, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,7 +9,6 @@ import { toast } from "sonner";
 import { applyTheme } from "@/lib/themeManager";
 import { useTheme } from "@/lib/ThemeContext";
 import { fieldError, nonNegativeNumber, required } from "@/lib/formValidation";
-
 const TABS = [
   { id: "general", label: "General", icon: Globe },
   { id: "theme", label: "Theme", icon: Palette },
@@ -109,10 +108,6 @@ export default function SettingsPage() {
         setSettingsId(records[0].id);
         const mapped = mapFromEntity(records[0]);
         setSettings(s => ({ ...s, ...mapped }));
-        // Sync dark mode context with DB value
-        if (mapped.dark_mode !== undefined) {
-          setDark(mapped.dark_mode);
-        }
       }
     }).catch(() => {});
   }, []);
@@ -249,11 +244,17 @@ export default function SettingsPage() {
                   <Label className="mb-3 block">Primary Color</Label>
                   <div className="flex flex-wrap gap-3">
                     {THEME_COLORS.map(c => (
-                      <button key={c.name} onClick={() => update("theme_color", c.name)}
-                        className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-medium transition-all ${settings.theme_color === c.name ? "border-white/40 bg-white/10" : "border-white/10 hover:border-white/20"}`}>
-                        <div className="w-4 h-4 rounded-full" style={{ background: c.primary }} />{c.name}
-                      </button>
-                    ))}
+  <button key={c.name} onClick={() => update("theme_color", c.name)}
+    className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-medium transition-all ${settings.theme_color === c.name ? "border-white/40 bg-white/10" : "border-white/10 hover:border-white/20"}`}
+    style={settings.theme_color === c.name ? { outline: `2px solid ${c.primary}`, outlineOffset: "2px" } : {}}>
+    <div className="w-4 h-4 rounded-full relative flex items-center justify-center" style={{ background: c.primary }}>
+      {settings.theme_color === c.name && (
+        <Check className="w-3 h-3 text-white drop-shadow-md" strokeWidth={3} />
+      )}
+    </div>
+    {c.name}
+  </button>
+))}
                   </div>
                   <p className="text-xs text-muted-foreground mt-2">Changes are applied system-wide on save.</p>
                 </div>

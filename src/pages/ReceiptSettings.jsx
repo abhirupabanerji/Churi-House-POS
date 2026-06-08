@@ -8,7 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import ReceiptPreview from "@/components/ReceiptPreview";
 import { fieldError, required } from "@/lib/formValidation";
-
+import { toast } from "sonner";
 const BRANCHES = ["Main Branch", "Jubilee Hills", "Banjara Hills", "Secunderabad"];
 
 const defaultSettings = (branch) => ({
@@ -43,12 +43,22 @@ export default function ReceiptSettings() {
   const [errors, setErrors] = useState({});
 
   useEffect(() => {
-    if (saved[selectedBranch]) {
-      setSettings(saved[selectedBranch]);
-    } else {
+  const loadBranchSettings = async () => {
+    try {
+      const existing = await base44.entities.BranchSettings.list("branch_name", 100);
+      const match = existing.find(r => r.branch_name === selectedBranch);
+      if (match) {
+        setSettings(match);
+        setSaved(s => ({ ...s, [selectedBranch]: match }));
+      } else {
+        setSettings(defaultSettings(selectedBranch));
+      }
+    } catch {
       setSettings(defaultSettings(selectedBranch));
     }
-  }, [selectedBranch]);
+  };
+  loadBranchSettings();
+}, [selectedBranch]);
 
   const validate = () => {
     const next = {};
@@ -62,17 +72,25 @@ export default function ReceiptSettings() {
   };
 
   const handleSave = async () => {
-    if (!validate()) return;
-    setSaving(true);
-    setSaved(s => ({ ...s, [selectedBranch]: settings }));
-    const existing = await base44.entities.BranchSettings.filter({ branch_name: selectedBranch });
-    if (existing.length > 0) {
-      await base44.entities.BranchSettings.update(existing[0].id, settings);
+  if (!validate()) return;
+  setSaving(true);
+  try {
+    const existing = await base44.entities.BranchSettings.list("branch_name", 100);
+    const match = existing.find(r => r.branch_name === selectedBranch);
+    if (match) {
+      await base44.entities.BranchSettings.update(match.id, settings);
     } else {
       await base44.entities.BranchSettings.create(settings);
     }
+    setSaved(s => ({ ...s, [selectedBranch]: settings }));
+    toast.success("✅ Receipt settings saved successfully.");
+  } catch (err) {
+    console.error("Save failed:", err);
+    toast.error("❌ Failed to save settings.");
+  } finally {
     setSaving(false);
-  };
+  }
+};
 
   const upd = (k, v) => setSettings(s => ({ ...s, [k]: v }));
 
