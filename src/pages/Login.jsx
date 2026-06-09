@@ -74,20 +74,70 @@ function FloatingScene({ canvasRef }) {
   return null;
 }
 
+// Inline styles that are fully theme-independent
+const cardStyle = {
+  background: "rgba(18, 18, 18, 0.75)",
+  backdropFilter: "blur(24px)",
+  WebkitBackdropFilter: "blur(24px)",
+  border: "1px solid rgba(255,255,255,0.08)",
+  borderRadius: "1rem",
+  padding: "2rem",
+  boxShadow: "0 0 40px rgba(234,88,12,0.15)",
+};
+
+const inputStyle = {
+  background: "rgba(255,255,255,0.06)",
+  border: "1px solid rgba(255,255,255,0.1)",
+  color: "#ffffff",
+  height: "2.75rem",
+  borderRadius: "0.5rem",
+  paddingLeft: "2.5rem",
+  width: "100%",
+  fontSize: "0.875rem",
+  outline: "none",
+};
+
+const labelStyle = {
+  color: "#ffffff",
+  fontWeight: 600,
+  fontSize: "1.25rem",
+  marginBottom: "0.25rem",
+};
+
+const subStyle = {
+  color: "rgba(255,255,255,0.5)",
+  fontSize: "0.875rem",
+  marginBottom: "1.25rem",
+};
+
+const pinDotActive = {
+  width: "1rem", height: "1rem", borderRadius: "50%",
+  background: "#ea580c", border: "2px solid #ea580c",
+  transition: "all 0.15s",
+};
+
+const pinDotInactive = {
+  width: "1rem", height: "1rem", borderRadius: "50%",
+  background: "transparent", border: "2px solid rgba(255,255,255,0.25)",
+  transition: "all 0.15s",
+};
+
+const numBtnBase = {
+  width: "4rem", height: "4rem", borderRadius: "0.75rem",
+  background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)",
+  color: "#ffffff", fontSize: "1.125rem", fontWeight: 600,
+  cursor: "pointer", transition: "all 0.15s", display: "flex",
+  alignItems: "center", justifyContent: "center",
+};
+
 export default function Login() {
   const canvasRef = useRef(null);
-
-  // Step: "credentials" | "pin"
   const [step, setStep] = useState("credentials");
   const [authedUser, setAuthedUser] = useState(null);
-
-  // Credentials step
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-
-  // PIN step
   const [pinEntry, setPinEntry] = useState("");
   const [pinError, setPinError] = useState("");
 
@@ -104,7 +154,6 @@ export default function Login() {
       return;
     }
     if (!user) { setLoading(false); return; }
-
     const storedPin = localStorage.getItem(`app_pin_${user.username}`);
     if (storedPin) {
       setAuthedUser(user);
@@ -116,7 +165,6 @@ export default function Login() {
     }
   };
 
-  // Auto-submit when 4 digits entered
   useEffect(() => {
     if (step !== "pin" || pinEntry.length !== 4 || !authedUser) return;
     const storedPin = localStorage.getItem(`app_pin_${authedUser.username}`);
@@ -136,126 +184,113 @@ export default function Login() {
   };
 
   return (
-    <div className="relative min-h-screen w-full overflow-hidden bg-[#0a0a0a] flex items-center justify-center">
-      <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
+    <div style={{ position: "relative", minHeight: "100vh", width: "100%", overflow: "hidden", background: "#0a0a0a", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <canvas ref={canvasRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
       <FloatingScene canvasRef={canvasRef} />
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-[120px]" />
-        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-primary/8 rounded-full blur-[100px]" />
+
+      {/* Ambient glow blobs */}
+      <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
+        <div style={{ position: "absolute", top: "25%", left: "25%", width: "24rem", height: "24rem", background: "rgba(234,88,12,0.10)", borderRadius: "50%", filter: "blur(120px)" }} />
+        <div style={{ position: "absolute", bottom: "25%", right: "25%", width: "20rem", height: "20rem", background: "rgba(234,88,12,0.07)", borderRadius: "50%", filter: "blur(100px)" }} />
       </div>
 
-      <div className="relative z-10 w-full max-w-md mx-4">
+      <div style={{ position: "relative", zIndex: 10, width: "100%", maxWidth: "28rem", padding: "0 1rem" }}>
         {/* Branding */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/20 border border-primary/30 mb-4 glow-orange">
-            <span className="text-2xl font-bold text-primary">CH</span>
+        <div style={{ textAlign: "center", marginBottom: "2rem" }}>
+          <div style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: "4rem", height: "4rem", borderRadius: "1rem", background: "rgba(234,88,12,0.2)", border: "1px solid rgba(234,88,12,0.3)", marginBottom: "1rem", boxShadow: "0 0 20px rgba(234,88,12,0.3)" }}>
+            <span style={{ fontSize: "1.5rem", fontWeight: 700, color: "#ea580c" }}>CH</span>
           </div>
-          <h1 className="text-3xl font-bold text-foreground tracking-tight">Churi House</h1>
-          <p className="text-muted-foreground text-sm mt-1">Restaurant &amp; Franchise Management</p>
+          <h1 style={{ fontSize: "1.875rem", fontWeight: 700, color: "#ffffff", letterSpacing: "-0.025em" }}>Churi House</h1>
+          <p style={{ color: "rgba(255,255,255,0.45)", fontSize: "0.875rem", marginTop: "0.25rem" }}>Restaurant &amp; Franchise Management</p>
         </div>
 
         {/* Step 1: Credentials */}
         {step === "credentials" && (
-          <div className="glass-strong rounded-2xl p-8 glow-orange">
-            <h2 className="text-xl font-semibold text-foreground mb-1">Welcome back</h2>
-            <p className="text-sm text-muted-foreground mb-5">Sign in to your dashboard</p>
+          <div style={cardStyle}>
+            <p style={labelStyle}>Welcome back</p>
+            <p style={subStyle}>Sign in to your dashboard</p>
 
             {error && (
-              <div className="mb-4 p-3 rounded-lg bg-destructive/20 text-destructive text-sm">{error}</div>
+              <div style={{ marginBottom: "1rem", padding: "0.75rem", borderRadius: "0.5rem", background: "rgba(239,68,68,0.15)", color: "#f87171", fontSize: "0.875rem" }}>{error}</div>
             )}
 
-            <form onSubmit={handleCredentialsSubmit} className="space-y-4">
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
+            <form onSubmit={handleCredentialsSubmit} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+              <div style={{ position: "relative" }}>
+                <User style={{ position: "absolute", left: "0.75rem", top: "50%", transform: "translateY(-50%)", width: "1rem", height: "1rem", color: "rgba(255,255,255,0.35)" }} />
+                <input
                   type="text"
                   autoComplete="username"
                   placeholder="Username"
                   value={username}
                   onChange={e => setUsername(e.target.value)}
-                  className="pl-10 h-11 bg-white/5 border-white/10 text-foreground placeholder:text-muted-foreground focus:border-primary/50"
+                  style={inputStyle}
                   required
                 />
               </div>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
+              <div style={{ position: "relative" }}>
+                <Lock style={{ position: "absolute", left: "0.75rem", top: "50%", transform: "translateY(-50%)", width: "1rem", height: "1rem", color: "rgba(255,255,255,0.35)" }} />
+                <input
                   type="password"
                   autoComplete="current-password"
                   placeholder="Password"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  className="pl-10 h-11 bg-white/5 border-white/10 text-foreground placeholder:text-muted-foreground focus:border-primary/50"
+                  style={inputStyle}
                   required
                 />
               </div>
-              <Button
+              <button
                 type="submit"
-                className="w-full h-11 font-semibold bg-primary hover:bg-primary/90 text-primary-foreground glow-orange"
                 disabled={loading}
+                style={{ width: "100%", height: "2.75rem", borderRadius: "0.5rem", background: "#ea580c", color: "#ffffff", fontWeight: 600, fontSize: "0.95rem", border: "none", cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.7 : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem", boxShadow: "0 0 20px rgba(234,88,12,0.4)" }}
               >
-                {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Signing in...</> : "Login"}
-              </Button>
+                {loading ? <><Loader2 style={{ width: "1rem", height: "1rem", animation: "spin 1s linear infinite" }} /> Signing in...</> : "Login"}
+              </button>
             </form>
           </div>
         )}
 
         {/* Step 2: PIN Entry */}
         {step === "pin" && (
-          <div className="glass-strong rounded-2xl p-8 glow-orange flex flex-col items-center gap-5">
-            <div className="flex flex-col items-center gap-1">
-              <h2 className="text-xl font-semibold text-foreground">Enter Your PIN</h2>
-              <p className="text-sm text-muted-foreground text-center">
-                Enter your 4-digit PIN to access the dashboard
-              </p>
+          <div style={{ ...cardStyle, display: "flex", flexDirection: "column", alignItems: "center", gap: "1.25rem" }}>
+            <div style={{ textAlign: "center" }}>
+              <p style={{ ...labelStyle, textAlign: "center" }}>Enter Your PIN</p>
+              <p style={{ ...subStyle, marginBottom: 0 }}>Enter your 4-digit PIN to access the dashboard</p>
             </div>
 
             {/* PIN dots */}
-            <div className="flex gap-4">
+            <div style={{ display: "flex", gap: "1rem" }}>
               {[0, 1, 2, 3].map(i => (
-                <div
-                  key={i}
-                  className={`w-4 h-4 rounded-full border-2 transition-all duration-150 ${
-                    pinEntry.length > i
-                      ? "bg-primary border-primary"
-                      : "bg-transparent border-muted-foreground/40"
-                  }`}
-                />
+                <div key={i} style={pinEntry.length > i ? pinDotActive : pinDotInactive} />
               ))}
             </div>
 
-            {pinError && <p className="text-xs text-red-400 font-medium">{pinError}</p>}
+            {pinError && <p style={{ fontSize: "0.75rem", color: "#f87171", fontWeight: 500 }}>{pinError}</p>}
 
             {/* Numpad */}
-            <div className="grid grid-cols-3 gap-3">
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.75rem" }}>
               {[1, 2, 3, 4, 5, 6, 7, 8, 9, "", 0, "⌫"].map((k, i) => (
                 <button
                   key={i}
                   disabled={k === ""}
                   onClick={() => {
-                    if (k === "⌫") {
-                      setPinEntry(p => p.slice(0, -1));
-                      setPinError("");
-                    } else if (k !== "") {
-                      handlePinKey(String(k));
-                    }
+                    if (k === "⌫") { setPinEntry(p => p.slice(0, -1)); setPinError(""); }
+                    else if (k !== "") handlePinKey(String(k));
                   }}
-                  className={`w-16 h-16 rounded-2xl text-lg font-semibold transition-all duration-150 ${
-                    k === ""
-                      ? "invisible"
-                      : k === "⌫"
-                      ? "glass border border-white/10 text-muted-foreground hover:text-foreground hover:bg-white/10"
-                      : "glass border border-white/10 text-foreground hover:bg-primary/20 hover:border-primary/40 active:scale-95"
-                  }`}
+                  style={k === "" ? { ...numBtnBase, visibility: "hidden" } : numBtnBase}
+                  onMouseEnter={e => { if (k !== "") e.currentTarget.style.background = "rgba(234,88,12,0.2)"; }}
+                  onMouseLeave={e => { if (k !== "") e.currentTarget.style.background = "rgba(255,255,255,0.06)"; }}
                 >
-                  {k === "⌫" ? <Delete className="w-5 h-5 mx-auto" /> : k}
+                  {k === "⌫" ? <Delete style={{ width: "1.25rem", height: "1.25rem" }} /> : k}
                 </button>
               ))}
             </div>
 
             <button
               onClick={() => { setStep("credentials"); setPinEntry(""); setPinError(""); }}
-              className="text-xs text-muted-foreground hover:text-foreground transition-colors mt-1"
+              style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.4)", background: "none", border: "none", cursor: "pointer", marginTop: "0.25rem" }}
+              onMouseEnter={e => e.currentTarget.style.color = "#ffffff"}
+              onMouseLeave={e => e.currentTarget.style.color = "rgba(255,255,255,0.4)"}
             >
               ← Back to login
             </button>

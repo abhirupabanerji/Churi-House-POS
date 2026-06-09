@@ -1,8 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Plus, Minus, Trash2, ShoppingCart, CreditCard, Banknote, Smartphone, Receipt, ArrowLeft, Loader2, X, Printer } from "lucide-react";
+import { Search, Plus, Minus, Trash2, ShoppingCart, CreditCard, Banknote, Smartphone, ArrowLeft, Loader2, X, Printer, ChevronDown } from "lucide-react";
 import { Link } from "react-router-dom";
 import ReceiptPreview from "@/components/ReceiptPreview";
 import { logAudit } from "@/lib/auditLog";
@@ -23,10 +23,7 @@ function getCurrentUser() {
       if (val) {
         const parsed = JSON.parse(val);
         if (Array.isArray(parsed)) {
-          // Find most recently logged in user
-          const sorted = [...parsed].sort((a, b) => 
-            new Date(b.last_login || 0) - new Date(a.last_login || 0)
-          );
+          const sorted = [...parsed].sort((a, b) => new Date(b.last_login || 0) - new Date(a.last_login || 0));
           const user = sorted[0];
           if (user && (user.full_name || user.username || user.email)) return user;
         } else {
@@ -36,6 +33,100 @@ function getCurrentUser() {
     }
     return {};
   } catch { return {}; }
+}
+
+const COUNTRY_CODES = [
+  { code: "+91",  country: "IN", name: "India" },
+  { code: "+1",   country: "US", name: "United States" },
+  { code: "+44",  country: "GB", name: "United Kingdom" },
+  { code: "+971", country: "AE", name: "UAE" },
+  { code: "+966", country: "SA", name: "Saudi Arabia" },
+  { code: "+65",  country: "SG", name: "Singapore" },
+  { code: "+61",  country: "AU", name: "Australia" },
+  { code: "+1",   country: "CA", name: "Canada" },
+  { code: "+49",  country: "DE", name: "Germany" },
+  { code: "+33",  country: "FR", name: "France" },
+  { code: "+81",  country: "JP", name: "Japan" },
+  { code: "+86",  country: "CN", name: "China" },
+  { code: "+7",   country: "RU", name: "Russia" },
+  { code: "+55",  country: "BR", name: "Brazil" },
+  { code: "+27",  country: "ZA", name: "South Africa" },
+  { code: "+92",  country: "PK", name: "Pakistan" },
+  { code: "+880", country: "BD", name: "Bangladesh" },
+  { code: "+94",  country: "LK", name: "Sri Lanka" },
+  { code: "+977", country: "NP", name: "Nepal" },
+  { code: "+60",  country: "MY", name: "Malaysia" },
+];
+
+function PhoneInput({ value, onChange, error }) {
+  const [selectedCode, setSelectedCode] = useState(COUNTRY_CODES[0]);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => { if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setDropdownOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const filtered = COUNTRY_CODES.filter(c =>
+    c.name.toLowerCase().includes(search.toLowerCase()) ||
+    c.code.includes(search) ||
+    c.country.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const handlePhoneChange = (e) => {
+    const digits = e.target.value.replace(/\D/g, "").slice(0, 15);
+    onChange(selectedCode.code + digits, digits);
+  };
+
+  const handleCodeSelect = (c) => {
+    setSelectedCode(c);
+    setDropdownOpen(false);
+    setSearch("");
+    const digits = value.replace(/\D/g, "").slice(0, 15);
+    onChange(c.code + digits, digits);
+  };
+
+  const displayValue = value.replace(/\D/g, "").slice(0, 15);
+
+  return (
+    <div className="relative mt-2" ref={dropdownRef}>
+      <div className={`flex h-9 rounded-md border bg-white/5 overflow-hidden ${error ? "border-red-500" : "border-white/10"}`}>
+        <button type="button" onClick={() => setDropdownOpen(o => !o)}
+          className="flex items-center gap-1 px-2 border-r border-white/10 hover:bg-white/10 transition-colors shrink-0">
+          <img src={`https://flagcdn.com/24x18/${selectedCode.country.toLowerCase()}.png`} alt={selectedCode.country}
+            style={{ width: "1.25rem", height: "0.9375rem", objectFit: "cover", borderRadius: "2px" }} />
+          <span className="text-xs text-foreground font-medium">{selectedCode.code}</span>
+          <ChevronDown className="w-3 h-3 text-muted-foreground" />
+        </button>
+        <input type="tel" placeholder="Phone number" value={displayValue} onChange={handlePhoneChange}
+          className="flex-1 bg-transparent px-2 text-sm text-foreground placeholder:text-muted-foreground outline-none" />
+      </div>
+      {dropdownOpen && (
+        <div className="absolute left-0 top-full mt-1 w-64 z-50 rounded-xl overflow-hidden shadow-2xl bg-popover border border-border"
+          style={{ boxShadow: "0 20px 40px rgba(0,0,0,0.35)" }}>
+          <div className="p-2 border-b border-border">
+            <input autoFocus placeholder="Search country..." value={search} onChange={e => setSearch(e.target.value)}
+              className="w-full rounded-lg px-3 py-1.5 text-xs outline-none bg-muted text-foreground placeholder:text-muted-foreground border border-border" />
+          </div>
+          <div className="max-h-48 overflow-y-auto">
+            {filtered.map((c, i) => (
+              <button key={`${c.country}-${i}`} onClick={() => handleCodeSelect(c)}
+                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-muted transition-colors text-left">
+                <img src={`https://flagcdn.com/24x18/${c.country.toLowerCase()}.png`} alt={c.country}
+                  style={{ width: "1.5rem", height: "1.125rem", objectFit: "cover", borderRadius: "2px", flexShrink: 0 }} />
+                <span className="text-xs text-foreground flex-1 truncate">{c.name}</span>
+                <span className="text-xs text-muted-foreground font-mono shrink-0">{c.code}</span>
+              </button>
+            ))}
+            {filtered.length === 0 && <p className="text-xs text-muted-foreground text-center py-4">No results</p>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function POS() {
@@ -48,6 +139,7 @@ export default function POS() {
   const [tableNum, setTableNum] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
+  const [customerPhoneDigits, setCustomerPhoneDigits] = useState("");
   const [lastOrder, setLastOrder] = useState(null);
   const [posAd, setPosAd] = useState(null);
   const [showReceipt, setShowReceipt] = useState(false);
@@ -56,6 +148,7 @@ export default function POS() {
   const [orderErrors, setOrderErrors] = useState({});
   const [voidError, setVoidError] = useState("");
   const [branchSettings, setBranchSettings] = useState(null);
+  const [canonicalBranchName, setCanonicalBranchName] = useState("Main Branch");
   const [printOnSave, setPrintOnSave] = useState(false);
 
   useEffect(() => {
@@ -67,11 +160,31 @@ export default function POS() {
     base44.entities.Advertisement.filter({ is_active: true, placement: "pos_screen" })
       .then(ads => setPosAd(ads[0] || null)).catch(() => {});
 
-    base44.entities.BranchSettings.list("branch_name", 100)
-      .then(all => {
-        const match = all.find(r => r.branch_name === "Main Branch") || all[0];
-        if (match) setBranchSettings(match);
-      }).catch(() => {});
+    // Load branch using canonical name from Branch entity
+    const currentUser = getCurrentUser();
+    const userBranch = (currentUser.branch_id && currentUser.branch_id !== "All Branches")
+      ? currentUser.branch_id : null;
+
+    Promise.all([
+      base44.entities.BranchSettings.list("branch_name", 100),
+      base44.entities.Branch.list("name", 100),
+    ]).then(([settingsData, branchData]) => {
+      // Find exact branch name from Branch entity (case-insensitive match)
+      const matchedBranch = branchData.find(b =>
+        b.name?.toLowerCase() === userBranch?.toLowerCase()
+      );
+      const canonical = matchedBranch?.name || userBranch || branchData[0]?.name || "Main Branch";
+      setCanonicalBranchName(canonical);
+
+      // Find settings using canonical name
+      const match = settingsData.find(r =>
+        r.branch_name?.toLowerCase() === canonical.toLowerCase()
+      ) || settingsData.find(r =>
+        r.branch_name?.toLowerCase() === "main branch"
+      ) || settingsData[0];
+
+      if (match) setBranchSettings({ ...match, branch_name: canonical });
+    }).catch(() => {});
   }, []);
 
   const customCats = loadCustomCategories();
@@ -109,6 +222,7 @@ export default function POS() {
       order_number: orderNum,
       type: orderType,
       status: "pending",
+      branch_name: canonicalBranchName,
       items: cart.map(c => ({ name: c.name, quantity: c.qty, price: c.price })),
       subtotal, tax, discount: 0, total,
       payment_method: paymentMethod,
@@ -119,14 +233,12 @@ export default function POS() {
     };
     await base44.entities.Order.create(order);
     logAudit({ action: `Order placed: ${orderNum}`, type: "order", details: `${paymentMethod} | ₹${total} | ${orderType}` });
-    if (printOnSave) {
-      setLastOrder(order);
-      setShowReceipt(true);
-    }
+    if (printOnSave) { setLastOrder(order); setShowReceipt(true); }
     setCart([]);
     setTableNum("");
     setCustomerName("");
     setCustomerPhone("");
+    setCustomerPhoneDigits("");
   };
 
   const handleVoidCart = async () => {
@@ -147,20 +259,16 @@ export default function POS() {
     setTableNum("");
     setCustomerName("");
     setCustomerPhone("");
+    setCustomerPhoneDigits("");
     setVoidReason("");
     setShowVoidModal(false);
   };
 
   const defaultSettings = {
-    receipt_header: "Churi House — Main Branch",
+    receipt_header: "Churi House",
     receipt_footer: "Thank you!",
-    show_gst: true,
-    show_discount: true,
-    show_branch_address: true,
-    show_phone: true,
-    show_order_type: true,
-    show_table_number: true,
-    show_payment_method: true,
+    show_gst: true, show_discount: true, show_branch_address: true,
+    show_phone: true, show_order_type: true, show_table_number: true, show_payment_method: true,
   };
 
   return (
@@ -176,11 +284,8 @@ export default function POS() {
       )}
 
       {showReceipt && lastOrder && (
-        <ReceiptPreview
-          order={lastOrder}
-          settings={branchSettings || defaultSettings}
-          onClose={() => { setShowReceipt(false); setLastOrder(null); }}
-        />
+        <ReceiptPreview order={lastOrder} settings={branchSettings || defaultSettings}
+          onClose={() => { setShowReceipt(false); setLastOrder(null); }} />
       )}
 
       {showVoidModal && (
@@ -212,6 +317,7 @@ export default function POS() {
         </Link>
         <span className="text-muted-foreground">|</span>
         <span className="text-sm font-semibold text-foreground">POS / Billing</span>
+        <span className="text-xs text-primary ml-1">— {canonicalBranchName}</span>
         {menuLoading && <Loader2 className="w-4 h-4 text-primary animate-spin ml-auto" />}
       </div>
 
@@ -290,6 +396,7 @@ export default function POS() {
               <h2 className="text-base font-semibold text-foreground">Current Order</h2>
               <span className="ml-auto text-xs text-muted-foreground">{cart.length} items</span>
             </div>
+
             {orderType === "dine_in" && (
               <>
                 <Input placeholder="Table number" value={tableNum}
@@ -298,13 +405,17 @@ export default function POS() {
                 {fieldError(orderErrors, "tableNum") && <p className="text-xs text-red-400 mt-1">{fieldError(orderErrors, "tableNum")}</p>}
               </>
             )}
+
             <Input placeholder="Customer name" value={customerName}
               onChange={e => { setCustomerName(e.target.value); setOrderErrors(er => ({ ...er, customerName: "" })); }}
               className={`mt-2 h-9 bg-white/5 border-white/10 text-sm ${fieldError(orderErrors, "customerName") ? "border-red-500" : ""}`} />
             {fieldError(orderErrors, "customerName") && <p className="text-xs text-red-400 mt-1">{fieldError(orderErrors, "customerName")}</p>}
-            <Input placeholder="Phone number" value={customerPhone}
-              onChange={e => { setCustomerPhone(e.target.value.replace(/\D/g, "").slice(0, 10)); setOrderErrors(er => ({ ...er, customerPhone: "" })); }}
-              className={`mt-2 h-9 bg-white/5 border-white/10 text-sm ${fieldError(orderErrors, "customerPhone") ? "border-red-500" : ""}`} />
+
+            <PhoneInput
+              value={customerPhoneDigits}
+              onChange={(full, digits) => { setCustomerPhone(full); setCustomerPhoneDigits(digits); setOrderErrors(er => ({ ...er, customerPhone: "" })); }}
+              error={fieldError(orderErrors, "customerPhone")}
+            />
             {fieldError(orderErrors, "customerPhone") && <p className="text-xs text-red-400 mt-1">{fieldError(orderErrors, "customerPhone")}</p>}
             {fieldError(orderErrors, "cart") && <p className="text-xs text-red-400 mt-2">{fieldError(orderErrors, "cart")}</p>}
           </div>
@@ -344,33 +455,31 @@ export default function POS() {
               </div>
             </div>
 
-            {/* Print toggle */}
             <div className="flex items-center justify-between px-1">
               <div className="flex items-center gap-2">
                 <Printer className="w-4 h-4 text-muted-foreground" />
                 <span className="text-xs text-muted-foreground">Print receipt after order</span>
               </div>
-              <button
-  onClick={() => setPrintOnSave(p => !p)}
-  className={`w-10 h-5 rounded-full transition-all relative ${printOnSave ? "bg-primary" : "bg-gray-300"}`}>
-  <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${printOnSave ? "left-5" : "left-0.5"}`} />
-</button>
+              <button onClick={() => setPrintOnSave(p => !p)}
+                className={`w-10 h-5 rounded-full transition-all relative ${printOnSave ? "bg-primary" : "bg-gray-300"}`}>
+                <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${printOnSave ? "left-5" : "left-0.5"}`} />
+              </button>
             </div>
 
             <div className="grid grid-cols-3 gap-2">
-            <Button onClick={() => placeOrder("cash")} disabled={cart.length === 0}
-              variant="outline" className="h-10 bg-white/5 border-white/10 text-xs font-semibold hover:bg-primary hover:text-white hover:border-primary transition-all">
-              <Banknote className="w-4 h-4 mr-1" /> Cash
-            </Button>
-            <Button onClick={() => placeOrder("card")} disabled={cart.length === 0}
-              variant="outline" className="h-10 bg-white/5 border-white/10 text-xs font-semibold hover:bg-primary hover:text-white hover:border-primary transition-all">
-              <CreditCard className="w-4 h-4 mr-1" /> Card
-            </Button>
-            <Button onClick={() => placeOrder("upi")} disabled={cart.length === 0}
-              variant="outline" className="h-10 bg-white/5 border-white/10 text-xs font-semibold hover:bg-primary hover:text-white hover:border-primary transition-all">
-              <Smartphone className="w-4 h-4 mr-1" /> UPI
-            </Button>
-          </div>
+              <Button onClick={() => placeOrder("cash")} disabled={cart.length === 0}
+                variant="outline" className="h-10 bg-white/5 border-white/10 text-xs font-semibold hover:bg-primary hover:text-white hover:border-primary transition-all">
+                <Banknote className="w-4 h-4 mr-1" /> Cash
+              </Button>
+              <Button onClick={() => placeOrder("card")} disabled={cart.length === 0}
+                variant="outline" className="h-10 bg-white/5 border-white/10 text-xs font-semibold hover:bg-primary hover:text-white hover:border-primary transition-all">
+                <CreditCard className="w-4 h-4 mr-1" /> Card
+              </Button>
+              <Button onClick={() => placeOrder("upi")} disabled={cart.length === 0}
+                variant="outline" className="h-10 bg-white/5 border-white/10 text-xs font-semibold hover:bg-primary hover:text-white hover:border-primary transition-all">
+                <Smartphone className="w-4 h-4 mr-1" /> UPI
+              </Button>
+            </div>
 
             <Button onClick={() => cart.length > 0 ? setShowVoidModal(true) : null} disabled={cart.length === 0}
               variant="outline" className="w-full h-9 bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20 text-xs font-semibold">

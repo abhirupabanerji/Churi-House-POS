@@ -8,14 +8,16 @@ import { logAudit } from "@/lib/auditLog";
 import { toast } from "sonner";
 
 const MODULE_LABELS = {
-  MenuItem:      "Menu Item",
-  InventoryItem: "Inventory",
-  Staff:         "Staff",
-  User:          "User",
-  Customer:      "Customer",
-  Order:         "Order",
-  Vendor:        "Vendor",
-  PurchaseOrder: "Purchase Order",
+  MenuItem:       "Menu Item",
+  InventoryItem:  "Inventory",
+  Staff:          "Staff",
+  User:           "User",
+  Customer:       "Customer",
+  Order:          "Order",
+  "Online Orders" :"Online Order",
+  Vendor:         "Vendor",
+  PurchaseOrder:  "Purchase Order",
+  Table:          "Table",
 };
 
 export default function RecycleBin() {
@@ -61,6 +63,16 @@ export default function RecycleBin() {
     return true;
   });
 
+  // Parse customer name from order_data if present
+  const getCustomerName = (record) => {
+    try {
+      const data = JSON.parse(record.order_data || "{}");
+      return data.customer_name || data.name || null;
+    } catch {
+      return null;
+    }
+  };
+
   const restore = async (record) => {
     try {
       const module = record.source_module || "Order";
@@ -73,10 +85,8 @@ export default function RecycleBin() {
         return;
       }
 
-      // Strip internal fields before recreating
       const { id, created_date, updated_date, ...cleanData } = originalData;
 
-      // Explicit switch — avoids dynamic bracket notation issues
       switch (module) {
         case "MenuItem":
           await base44.entities.MenuItem.create(cleanData);
@@ -96,11 +106,18 @@ export default function RecycleBin() {
         case "Order":
           await base44.entities.Order.create(cleanData);
           break;
+
+        case "Online Orders":
+          await base44.entities.Order.create(cleanData);  // same entity, type field distinguishes it
+          break;
         case "Vendor":
           await base44.entities.Vendor.create(cleanData);
           break;
         case "PurchaseOrder":
           await base44.entities.PurchaseOrder.create(cleanData);
+          break;
+        case "Table":
+          await base44.entities.Table.create(cleanData);
           break;
         default:
           toast.error(`Cannot restore: unknown module "${module}"`);
@@ -144,11 +161,8 @@ export default function RecycleBin() {
         <Filter className="w-4 h-4 text-muted-foreground self-center" />
         <div className="space-y-1">
           <label className="text-[10px] text-muted-foreground uppercase tracking-wide">Module</label>
-          <select
-            value={moduleFilter}
-            onChange={e => setModuleFilter(e.target.value)}
-            className="h-9 rounded-lg bg-secondary border border-white/10 text-sm px-3 text-foreground"
-          >
+          <select value={moduleFilter} onChange={e => setModuleFilter(e.target.value)}
+            className="h-9 rounded-lg bg-secondary border border-white/10 text-sm px-3 text-foreground">
             {modules.map(m => <option key={m} value={m}>{MODULE_LABELS[m] || m}</option>)}
           </select>
         </div>
@@ -162,19 +176,12 @@ export default function RecycleBin() {
         </div>
         <div className="space-y-1">
           <label className="text-[10px] text-muted-foreground uppercase tracking-wide">Deleted By</label>
-          <Input
-            placeholder="Search name..."
-            value={deletedByFilter}
-            onChange={e => setDeletedByFilter(e.target.value)}
-            className="h-9 bg-white/5 border-white/10 text-sm w-36"
-          />
+          <Input placeholder="Search name..." value={deletedByFilter} onChange={e => setDeletedByFilter(e.target.value)}
+            className="h-9 bg-white/5 border-white/10 text-sm w-36" />
         </div>
         {(moduleFilter !== "All" || dateFrom || dateTo || deletedByFilter) && (
-          <Button
-            size="sm" variant="outline"
-            className="bg-white/5 border-white/10 self-end"
-            onClick={() => { setModuleFilter("All"); setDateFrom(""); setDateTo(""); setDeletedByFilter(""); }}
-          >
+          <Button size="sm" variant="outline" className="bg-white/5 border-white/10 self-end"
+            onClick={() => { setModuleFilter("All"); setDateFrom(""); setDateTo(""); setDeletedByFilter(""); }}>
             <X className="w-3 h-3 mr-1" /> Clear
           </Button>
         )}
@@ -203,10 +210,15 @@ export default function RecycleBin() {
             <tbody>
               {filtered.map(r => {
                 const moduleName = r.source_module || "Order";
+                const customerName = getCustomerName(r);
                 return (
                   <tr key={r.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
                     <td className="p-4">
                       <span className="font-mono text-xs text-foreground font-medium">{r.order_number}</span>
+                      {/* Customer name shown for order-type records */}
+                      {customerName && (
+                        <p className="text-[11px] text-muted-foreground mt-0.5">{customerName}</p>
+                      )}
                     </td>
                     <td className="p-4">
                       <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary">
@@ -224,18 +236,14 @@ export default function RecycleBin() {
                     </td>
                     <td className="p-4">
                       <div className="flex gap-1">
-                        <Button
-                          size="sm" variant="outline"
+                        <Button size="sm" variant="outline"
                           className="h-7 px-2 bg-green-500/10 border-green-500/20 text-green-400 hover:bg-green-500/20 text-xs"
-                          onClick={() => restore(r)}
-                        >
+                          onClick={() => restore(r)}>
                           <RotateCcw className="w-3 h-3 mr-1" /> Restore
                         </Button>
-                        <Button
-                          size="sm" variant="outline"
+                        <Button size="sm" variant="outline"
                           className="h-7 px-2 bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20"
-                          onClick={() => setConfirmDelete(r)}
-                        >
+                          onClick={() => setConfirmDelete(r)}>
                           <Trash2 className="w-3 h-3" />
                         </Button>
                       </div>

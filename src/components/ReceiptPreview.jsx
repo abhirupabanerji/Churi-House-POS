@@ -35,16 +35,18 @@ const ORDER_TYPE_COLORS = {
 export default function ReceiptPreview({ settings, order = SAMPLE_ORDER, onClose }) {
   const handlePrint = () => window.print();
 
-  const currentUser = (() => {
-    try {
-      const val = JSON.parse(localStorage.getItem("local_AppUser") || "{}");
-      return Array.isArray(val) ? val[0] : val;
-    } catch { return {}; }
-  })();
-
-  const billedBy = order.billed_by || currentUser.full_name || currentUser.username || "—";
+  const billedBy = order.billed_by || "—";
   const orderTypeLabel = ORDER_TYPE_LABELS[order.type] || order.type;
   const orderTypeColor = ORDER_TYPE_COLORS[order.type] || "bg-gray-100 text-gray-700";
+
+  // Resolve all settings with no hardcoded fallbacks
+  const header   = settings?.receipt_header || "Churi House";
+  const tagline  = settings?.tagline || "";
+  const address  = settings?.address || "";
+  const phone    = settings?.phone || "";
+  const gstin    = settings?.gstin || "";
+  const footer   = settings?.receipt_footer || "Thank you!";
+  const note     = settings?.receipt_note || "";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
@@ -59,7 +61,6 @@ export default function ReceiptPreview({ settings, order = SAMPLE_ORDER, onClose
           </div>
         </div>
 
-        {/* Receipt Paper */}
         <div className="bg-white text-black rounded-xl p-5 font-mono text-xs space-y-2 print:shadow-none" id="receipt-content">
           {settings?.receipt_logo_url && (
             <img src={settings.receipt_logo_url} className="h-10 mx-auto mb-2" alt="logo" />
@@ -67,16 +68,16 @@ export default function ReceiptPreview({ settings, order = SAMPLE_ORDER, onClose
 
           {/* Header */}
           <div className="text-center border-b border-dashed border-gray-300 pb-2">
-            <p className="font-bold text-sm">{settings?.receipt_header || "Churi House"}</p>
-            {settings?.tagline && <p className="text-gray-400 text-[10px] italic">{settings.tagline}</p>}
-            {settings?.show_branch_address && (
-              <p className="text-gray-500 text-[10px]">{settings?.address || "Hyderabad, Telangana"}</p>
+            <p className="font-bold text-sm">{header}</p>
+            {tagline && <p className="text-gray-400 text-[10px] italic">{tagline}</p>}
+            {settings?.show_branch_address && address && (
+              <p className="text-gray-500 text-[10px]">{address}</p>
             )}
-            {settings?.show_phone && (
-              <p className="text-gray-500 text-[10px]">Tel: {settings?.phone || "+91 90000 00000"}</p>
+            {settings?.show_phone && phone && (
+              <p className="text-gray-500 text-[10px]">Tel: {phone}</p>
             )}
-            {settings?.show_gst && (
-              <p className="text-gray-500 text-[10px]">GSTIN: 36AABCU9603R1ZX</p>
+            {settings?.show_gst && gstin && (
+              <p className="text-gray-500 text-[10px]">GSTIN: {gstin}</p>
             )}
           </div>
 
@@ -95,7 +96,9 @@ export default function ReceiptPreview({ settings, order = SAMPLE_ORDER, onClose
               {order.table_number && (
                 <span className="text-gray-500">Table: {order.table_number}</span>
               )}
-              {settings?.show_server_name && <span className="text-gray-500 ml-auto">Server: Ramesh</span>}
+              {settings?.show_server_name && order.billed_by && (
+                <span className="text-gray-500 ml-auto">Server: {order.billed_by}</span>
+              )}
             </div>
           )}
 
@@ -119,7 +122,7 @@ export default function ReceiptPreview({ settings, order = SAMPLE_ORDER, onClose
 
           {/* Totals */}
           <div className="border-t border-dashed border-gray-300 pt-2 space-y-0.5">
-            <div className="flex justify-between text-gray-600"><span>Subtotal</span><span>₹{order.subtotal.toFixed(0)}</span></div>
+            <div className="flex justify-between text-gray-600"><span>Subtotal</span><span>₹{Number(order.subtotal).toFixed(0)}</span></div>
             {settings?.show_discount && (
               <div className="flex justify-between text-green-600"><span>Discount</span><span>-₹{order.discount ?? 0}</span></div>
             )}
@@ -144,10 +147,8 @@ export default function ReceiptPreview({ settings, order = SAMPLE_ORDER, onClose
 
           {/* Footer */}
           <div className="text-center border-t border-dashed border-gray-300 pt-2 space-y-0.5">
-            <p className="font-semibold">{settings?.receipt_footer || "Thank you!"}</p>
-            {settings?.receipt_note && (
-              <p className="text-gray-400 text-[9px]">{settings.receipt_note}</p>
-            )}
+            <p className="font-semibold">{footer}</p>
+            {note && <p className="text-gray-400 text-[9px]">{note}</p>}
           </div>
         </div>
       </div>

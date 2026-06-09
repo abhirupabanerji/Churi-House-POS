@@ -53,7 +53,7 @@ export default function OnlineOrders() {
     if (editing) await base44.entities.Order.update(editing.id, form);
     else await base44.entities.Order.create({ ...form, order_number: orderNum });
     setShowForm(false);
-    base44.entities.Order.list("-created_date", 50).then(d => { setOrders(d.filter(o => ["swiggy","zomato","online"].includes(o.type))); });
+    base44.entities.Order.list("-created_date", 50).then(d => { setOrders(d.filter(o => ["swiggy","zomato"].includes(o.type))); });
   };
 
   const updateStatus = async (id, status) => { await base44.entities.Order.update(id, { status }); setOrders(prev => prev.map(o => o.id === id ? { ...o, status } : o)); };

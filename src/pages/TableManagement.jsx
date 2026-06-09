@@ -18,33 +18,37 @@ const statusStyle = {
   cleaning:  "bg-blue-500/10 border-blue-500/30 text-blue-400 hover:bg-blue-500/20",
 };
 
-const LS_KEY = "churi_tables_state";
-
 const defaultTables = Array.from({ length: 20 }, (_, i) => ({
-  id: i + 1, num: i + 1,
+  num: i + 1,
   capacity: [2, 2, 4, 4, 6, 6, 8][i % 7],
   status: ["available", "occupied", "occupied", "reserved", "available"][i % 5],
   label: "",
 }));
 
-function loadTables() {
-  try {
-    const s = localStorage.getItem(LS_KEY);
-    return s ? JSON.parse(s) : defaultTables;
-  } catch { return defaultTables; }
-}
-
 export default function TableManagement() {
-  const [tables, setTables] = useState(loadTables);
+  const [tables, setTables] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
   const [addForm, setAddForm] = useState({ num: "", capacity: 4, label: "" });
   const [addErrors, setAddErrors] = useState({});
 
-  // Persist to localStorage whenever tables change
-  useEffect(() => {
-    localStorage.setItem(LS_KEY, JSON.stringify(tables));
-  }, [tables]);
+  const load = () => {
+    base44.entities.Table.list("num", 200)
+      .then(async (rows) => {
+        // First-time seed: if no tables exist yet, create the defaults
+        if (rows.length === 0) {
+          const created = await Promise.all(defaultTables.map(t => base44.entities.Table.create(t)));
+          setTables(created.sort((a, b) => a.num - b.num));
+        } else {
+          setTables(rows.sort((a, b) => a.num - b.num));
+        }
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  };
+
+  useEffect(() => { load(); }, []);
 
   // Sync reserved tables from Reservations entity
   useEffect(() => {
@@ -52,37 +56,65 @@ export default function TableManagement() {
     base44.entities.Reservation.filter({ status: "confirmed", date: today })
       .then(confirmed => {
         if (!confirmed.length) return;
-        setTables(prev => {
-          const updated = [...prev];
-          confirmed.forEach(r => {
-            if (r.table_number) {
-              const idx = updated.findIndex(t => String(t.num) === String(r.table_number));
-              if (idx >= 0 && updated[idx].status === "available") {
-                updated[idx] = { ...updated[idx], status: "reserved", label: `Res: ${r.guest_name}` };
+        confirmed.forEach(r => {
+          if (r.table_number) {
+            setTables(prev => prev.map(t => {
+              if (String(t.num) === String(r.table_number) && t.status === "available") {
+                const updated = { ...t, status: "reserved", label: `Res: ${r.guest_name}` };
+                base44.entities.Table.update(t.id, { status: "reserved", label: `Res: ${r.guest_name}` }).catch(() => {});
+                return updated;
               }
-            }
-          });
-          return updated;
+              return t;
+            }));
+          }
         });
       }).catch(() => {});
 
-    // Real-time subscription
     const unsub = base44.entities.Reservation.subscribe((event) => {
       if (event.type === "create" || event.type === "update") {
         const r = event.data;
         if (r.status === "confirmed" && r.table_number) {
-          setTables(prev => prev.map(t =>
-            String(t.num) === String(r.table_number) && t.status === "available"
-              ? { ...t, status: "reserved", label: `Res: ${r.guest_name}` } : t
-          ));
+          setTables(prev => prev.map(t => {
+            if (String(t.num) === String(r.table_number) && t.status === "available") {
+              base44.entities.Table.update(t.id, { status: "reserved", label: `Res: ${r.guest_name}` }).catch(() => {});
+              return { ...t, status: "reserved", label: `Res: ${r.guest_name}` };
+            }
+            return t;
+          }));
         }
       }
     });
     return unsub;
   }, []);
 
-  const updateTable = (id, changes) => setTables(ts => ts.map(t => t.id === id ? { ...t, ...changes } : t));
-  const deleteTable = (id) => { setTables(ts => ts.filter(t => t.id !== id)); setSelected(null); };
+  const updateTable = async (id, changes) => {
+    await base44.entities.Table.update(id, changes).catch(() => {});
+    setTables(ts => ts.map(t => t.id === id ? { ...t, ...changes } : t));
+  };
+
+  const deleteTable = async (table) => {
+    if (!confirm(`Delete Table ${table.num}?`)) return;
+    try {
+      await softDelete({
+        module: "Table",
+        id: table.id,
+        name: `Table-${table.num}`,
+        data: table,
+      });
+      await base44.entities.Table.delete(table.id);
+      logAudit({
+        action: `Table deleted: Table-${table.num}`,
+        type: "admin",
+        details: `Capacity: ${table.capacity} | Status: ${table.status}${table.label ? ` | Label: ${table.label}` : ""}`,
+      });
+      toast.success(`🗑️ Table ${table.num} moved to Recycle Bin.`);
+      setTables(ts => ts.filter(t => t.id !== table.id));
+      setSelected(null);
+    } catch (err) {
+      toast.error("Failed to delete table.");
+      console.error(err);
+    }
+  };
 
   const validateAddTable = () => {
     const next = {};
@@ -92,22 +124,32 @@ export default function TableManagement() {
     return Object.keys(next).length === 0;
   };
 
-  const addTable = () => {
+  const addTable = async () => {
     if (!validateAddTable()) return;
-    setTables(ts => [...ts, { id: Date.now(), num: Number(addForm.num), capacity: Number(addForm.capacity), status: "available", label: addForm.label }]);
-    setAddForm({ num: "", capacity: 4, label: "" });
-    setShowAdd(false);
+    try {
+      const created = await base44.entities.Table.create({
+        num: Number(addForm.num),
+        capacity: Number(addForm.capacity),
+        status: "available",
+        label: addForm.label,
+      });
+      setTables(ts => [...ts, created].sort((a, b) => a.num - b.num));
+      setAddForm({ num: "", capacity: 4, label: "" });
+      setShowAdd(false);
+    } catch (err) {
+      toast.error("Failed to add table.");
+      console.error(err);
+    }
   };
 
-  const visibleTables = [...tables].sort((a, b) => a.num - b.num);
-  const counts = STATUSES.reduce((a, s) => ({ ...a, [s]: visibleTables.filter(t => t.status === s).length }), {});
+  const counts = STATUSES.reduce((a, s) => ({ ...a, [s]: tables.filter(t => t.status === s).length }), {});
 
   return (
     <div className="p-6 space-y-5">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Table Management</h1>
-          <p className="text-sm text-muted-foreground">{tables.length} tables · State saved automatically</p>
+          <p className="text-sm text-muted-foreground">{tables.length} tables</p>
         </div>
         <Button onClick={() => { setAddErrors({}); setShowAdd(true); }} className="bg-primary hover:bg-primary/90 glow-orange">
           <Plus className="w-4 h-4 mr-1" /> Add Table
@@ -123,17 +165,24 @@ export default function TableManagement() {
         ))}
       </div>
 
-      <div className="grid grid-cols-4 md:grid-cols-5 xl:grid-cols-8 gap-3">
-        {visibleTables.map(t => (
-          <div key={t.id} onClick={() => setSelected(t)}
-            className={`glass rounded-2xl p-4 text-center border cursor-pointer transition-all ${statusStyle[t.status]}`}>
-            <p className="text-lg font-bold">{t.num}</p>
-            <p className="text-[10px] opacity-70">{t.capacity} seats</p>
-            {t.label && <p className="text-[9px] mt-0.5 opacity-60 truncate">{t.label}</p>}
-          </div>
-        ))}
-      </div>
+      {loading ? (
+        <div className="flex justify-center py-20">
+          <div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
+        </div>
+      ) : (
+        <div className="grid grid-cols-4 md:grid-cols-5 xl:grid-cols-8 gap-3">
+          {tables.map(t => (
+            <div key={t.id} onClick={() => setSelected({ ...t })}
+              className={`glass rounded-2xl p-4 text-center border cursor-pointer transition-all ${statusStyle[t.status]}`}>
+              <p className="text-lg font-bold">{t.num}</p>
+              <p className="text-[10px] opacity-70">{t.capacity} seats</p>
+              {t.label && <p className="text-[9px] mt-0.5 opacity-60 truncate">{t.label}</p>}
+            </div>
+          ))}
+        </div>
+      )}
 
+      {/* Table Edit Modal */}
       {selected && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="glass-strong rounded-2xl p-6 w-full max-w-sm mx-4 space-y-4">
@@ -145,19 +194,19 @@ export default function TableManagement() {
               <div className="space-y-1.5">
                 <Label className="text-xs">Table Number</Label>
                 <Input type="number" value={selected.num}
-                  onChange={e => { const v = { ...selected, num: Number(e.target.value) }; setSelected(v); updateTable(v.id, { num: v.num }); }}
+                  onChange={e => setSelected(v => ({ ...v, num: Number(e.target.value) }))}
                   className="h-9 bg-white/5 border-white/10 text-sm" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Capacity (seats)</Label>
                 <Input type="number" value={selected.capacity}
-                  onChange={e => { const v = { ...selected, capacity: Number(e.target.value) }; setSelected(v); updateTable(v.id, { capacity: v.capacity }); }}
+                  onChange={e => setSelected(v => ({ ...v, capacity: Number(e.target.value) }))}
                   className="h-9 bg-white/5 border-white/10 text-sm" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Label / Note</Label>
                 <Input value={selected.label || ""}
-                  onChange={e => { const v = { ...selected, label: e.target.value }; setSelected(v); updateTable(v.id, { label: v.label }); }}
+                  onChange={e => setSelected(v => ({ ...v, label: e.target.value }))}
                   placeholder="e.g. Window seat, VIP..."
                   className="h-9 bg-white/5 border-white/10 text-sm" />
               </div>
@@ -165,7 +214,7 @@ export default function TableManagement() {
                 <Label className="text-xs">Status</Label>
                 <div className="grid grid-cols-2 gap-2">
                   {STATUSES.map(s => (
-                    <button key={s} onClick={() => { setSelected(sv => ({ ...sv, status: s })); updateTable(selected.id, { status: s }); }}
+                    <button key={s} onClick={() => setSelected(v => ({ ...v, status: s }))}
                       className={`text-xs font-medium px-3 py-2 rounded-xl border capitalize transition-all ${selected.status === s ? statusStyle[s] : "bg-white/5 border-white/10 text-muted-foreground hover:bg-white/10"}`}>
                       {s}
                     </button>
@@ -174,15 +223,20 @@ export default function TableManagement() {
               </div>
             </div>
             <div className="flex gap-3 pt-1">
-              <Button variant="outline" size="sm" className="bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20" onClick={() => deleteTable(selected.id)}>
+              <Button variant="outline" size="sm" className="bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20"
+                onClick={() => deleteTable(selected)}>
                 <Trash2 className="w-3.5 h-3.5 mr-1" /> Delete
               </Button>
-              <Button className="flex-1 bg-primary hover:bg-primary/90" onClick={() => setSelected(null)}>Done</Button>
+              <Button className="flex-1 bg-primary hover:bg-primary/90" onClick={() => {
+                updateTable(selected.id, { num: selected.num, capacity: selected.capacity, label: selected.label, status: selected.status });
+                setSelected(null);
+              }}>Done</Button>
             </div>
           </div>
         </div>
       )}
 
+      {/* Add Table Modal */}
       {showAdd && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="glass-strong rounded-2xl p-6 w-full max-w-sm mx-4 space-y-4">
