@@ -6,6 +6,7 @@ import { Search, Clock, ChefHat, CheckCircle, XCircle, LayoutGrid, List } from "
 import { logAudit } from "@/lib/auditLog";
 import { useEntityQuery, useInvalidate } from "@/lib/useEntityQuery";
 import { toast } from "sonner";
+import { getCurrentUserBranch } from "@/lib/branchFilter";
 
 const statusConfig = {
   pending:   { color: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30", icon: Clock, label: "Pending" },
@@ -27,6 +28,7 @@ export default function Orders() {
 
   const { data: orders = [], isLoading: loading } = useEntityQuery("Order", { sort: "-created_date", limit: 200 });
   const invalidate = useInvalidate();
+  const { branch, isAllBranches } = getCurrentUserBranch();
 
   const updateStatus = async (id, status) => {
     const order = orders.find(o => o.id === id);
@@ -37,14 +39,15 @@ export default function Orders() {
   };
 
   const filtered = orders.filter((o) => {
+    // Branch filter
+    if (!isAllBranches) {
+      const orderBranch = o.branch_name || o.branch || "";
+      if (orderBranch.toLowerCase() !== branch.toLowerCase()) return false;
+    }
     if (filter !== "all" && o.type !== filter) return false;
     if (search && !o.order_number?.toLowerCase().includes(search.toLowerCase()) && !o.customer_name?.toLowerCase().includes(search.toLowerCase())) return false;
-    if (dateFrom && o.created_date) {
-      if (new Date(o.created_date) < new Date(dateFrom)) return false;
-    }
-    if (dateTo && o.created_date) {
-      if (new Date(o.created_date) > new Date(dateTo + "T23:59:59")) return false;
-    }
+    if (dateFrom && o.created_date && new Date(o.created_date) < new Date(dateFrom)) return false;
+    if (dateTo && o.created_date && new Date(o.created_date) > new Date(dateTo + "T23:59:59")) return false;
     return true;
   });
 
@@ -53,7 +56,10 @@ export default function Orders() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Orders</h1>
-          <p className="text-sm text-muted-foreground">{filtered.length} orders</p>
+          <p className="text-sm text-muted-foreground">
+            {filtered.length} orders
+            {!isAllBranches && <span className="ml-2 text-primary text-xs">— {branch}</span>}
+          </p>
         </div>
         <div className="flex gap-2">
           <button onClick={() => setViewMode("grid")} className={`p-2 rounded-lg border transition-all ${viewMode === "grid" ? "bg-primary/15 border-primary/30 text-primary" : "bg-white/5 border-white/10 text-muted-foreground hover:text-foreground"}`}><LayoutGrid className="w-4 h-4" /></button>
@@ -61,7 +67,6 @@ export default function Orders() {
         </div>
       </div>
 
-      {/* Filters */}
       <div className="space-y-3">
         <div className="flex items-center gap-3 flex-wrap">
           <div className="relative flex-1 max-w-xs">
@@ -69,14 +74,14 @@ export default function Orders() {
             <Input placeholder="Search orders..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10 h-10 bg-white/5 border-white/10" />
           </div>
           <div className="flex items-center gap-2">
-            <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="h-10 bg-white/5 border-white/10 text-xs w-40" placeholder="From" />
+            <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="h-10 bg-white/5 border-white/10 text-xs w-40" />
             <span className="text-muted-foreground text-xs">to</span>
-            <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="h-10 bg-white/5 border-white/10 text-xs w-40" placeholder="To" />
+            <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="h-10 bg-white/5 border-white/10 text-xs w-40" />
             {(dateFrom || dateTo) && <button onClick={() => { setDateFrom(""); setDateTo(""); }} className="text-xs text-primary hover:underline">Clear</button>}
           </div>
         </div>
         <div className="flex gap-1 glass rounded-xl p-1 flex-wrap">
-          {[["all","All"],["dine_in","Walk-in"],["takeaway","Takeaway"],["swiggy","Swiggy"],["zomato","Zomato"],].map(([v, l]) => (
+          {[["all","All"],["dine_in","Walk-in"],["takeaway","Takeaway"],["swiggy","Swiggy"],["zomato","Zomato"]].map(([v, l]) => (
             <button key={v} onClick={() => setFilter(v)} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${filter === v ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>{l}</button>
           ))}
         </div>

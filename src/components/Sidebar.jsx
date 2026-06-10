@@ -42,7 +42,7 @@ const NAV = [
     { label: "Reports & Analytics", icon: BarChart3, path: "/reports" },
     { label: "Branch Comparison", icon: GitCompare, path: "/branch-comparison" },
     { label: "Franchise Payments", icon: DollarSign, path: "/franchise-payments" },
-    { label: "Spending", icon: Wallet, path: "/spending" },
+    { label: "Expenses", icon: Wallet, path: "/expenses" },
     { label: "Cash Drawer", icon: CreditCard, path: "/cash-drawer" },
     { label: "Tax & Compliance", icon: FileText, path: "/tax" },
     { label: "Refunds / Voids", icon: RefreshCw, path: "/refunds" },
@@ -72,7 +72,7 @@ const NAV = [
 const ROLE_ACCESS = {
   staff: new Set(["/", "/orders", "/kitchen", "/attendance"]),
   cashier: new Set(["/", "/pos", "/orders", "/kitchen", "/cash-drawer", "/refunds"]),
-  manager: new Set(["/", "/pos", "/orders", "/kitchen", "/menu", "/tables", "/reservations", "/online-orders", "/qr-ordering", "/inventory", "/vendors", "/purchase-orders", "/reports", "/branch-comparison", "/spending", "/cash-drawer", "/tax", "/refunds", "/advertisements", "/staff", "/attendance", "/recycle-bin"]),
+  manager: new Set(["/", "/pos", "/orders", "/kitchen", "/menu", "/tables", "/reservations", "/online-orders", "/qr-ordering", "/inventory", "/vendors", "/purchase-orders", "/reports", "/branch-comparison", "/expenses", "/cash-drawer", "/tax", "/refunds", "/advertisements", "/staff", "/attendance", "/recycle-bin"]),
 };
 
 export default function Sidebar() {

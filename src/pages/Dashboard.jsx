@@ -4,11 +4,9 @@ import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
 import StatCard from "../components/dashboard/StatCard";
 import { useTheme } from "@/lib/ThemeContext";
-import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  BarChart, Bar, PieChart, Pie, Cell, LineChart, Line
-} from "recharts";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, LineChart, Line } from "recharts";
 import { Tooltip as ShadTooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { getCurrentUserBranch } from "@/lib/branchFilter";
 
 const CHART_TOOLTIP_STYLE = {
   background: "hsl(var(--card))",
@@ -38,6 +36,7 @@ export default function Dashboard() {
   const [allOrders, setAllOrders] = useState([]);
   const [branches, setBranches] = useState([]);
   const [inventory, setInventory] = useState([]);
+  const { branch, isAllBranches } = getCurrentUserBranch();
 
   useEffect(() => {
     base44.entities.Branch.list().then(d => setBranches(d || [])).catch(() => {});
@@ -45,8 +44,16 @@ export default function Dashboard() {
     base44.entities.InventoryItem.list().then(d => setInventory(d || [])).catch(() => {});
   }, []);
 
+  // Filter orders by branch
+  const branchOrders = useMemo(() => {
+    if (isAllBranches) return allOrders;
+    return allOrders.filter(o =>
+      (o.branch_name || o.branch || "").toLowerCase() === branch.toLowerCase()
+    );
+  }, [allOrders, branch, isAllBranches]);
+
   const todayStr = new Date().toISOString().slice(0, 10);
-  const todayOrders = allOrders.filter(o => o.created_date?.slice(0, 10) === todayStr);
+  const todayOrders = branchOrders.filter(o => o.created_date?.slice(0, 10) === todayStr);
   const activeOrders = todayOrders.filter(o => ["pending","preparing","ready"].includes(o.status));
   const completedToday = todayOrders.filter(o => ["completed","served"].includes(o.status));
   const todayRevenue = completedToday.reduce((s, o) => s + (o.total || 0), 0);
@@ -54,7 +61,6 @@ export default function Dashboard() {
   const itemsSold = completedToday.reduce((s, o) => s + (o.items?.reduce((a, i) => a + (i.quantity || 1), 0) || 0), 0);
   const customersToday = new Set(completedToday.map(o => o.customer_phone || o.customer_name).filter(Boolean)).size || completedToday.length;
 
-  // Weekly revenue (last 7 days)
   const weeklyRevenue = useMemo(() => {
     const days = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
     const map = {};
@@ -63,25 +69,23 @@ export default function Dashboard() {
       const key = d.toISOString().slice(0,10);
       map[key] = { name: days[d.getDay()], revenue: 0 };
     }
-    allOrders.forEach(o => {
+    branchOrders.forEach(o => {
       const day = o.created_date?.slice(0,10);
       if (map[day] && ["completed","served"].includes(o.status)) map[day].revenue += (o.total || 0);
     });
     return Object.values(map);
-  }, [allOrders]);
+  }, [branchOrders]);
 
-  // Order type distribution
   const orderTypeData = useMemo(() => {
     const counts = {};
-    allOrders.forEach(o => { counts[o.type] = (counts[o.type] || 0) + 1; });
+    branchOrders.forEach(o => { counts[o.type] = (counts[o.type] || 0) + 1; });
     return Object.entries(counts).map(([type, value]) => ({
       name: type.replace(/_/g," ").replace(/\b\w/g, c => c.toUpperCase()),
       value,
       color: ORDER_TYPE_COLORS[type] || "#ea580c"
     }));
-  }, [allOrders]);
+  }, [branchOrders]);
 
-  // Hourly orders (today)
   const hourlyData = useMemo(() => {
     const map = {};
     for (let h = 8; h <= 22; h++) map[h] = { hour: `${h}:00`, orders: 0 };
@@ -92,7 +96,6 @@ export default function Dashboard() {
     return Object.values(map);
   }, [todayOrders]);
 
-  // Monthly revenue (last 6 months)
   const monthlyData = useMemo(() => {
     const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
     const map = {};
@@ -101,36 +104,29 @@ export default function Dashboard() {
       const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
       map[key] = { month: months[d.getMonth()], revenue: 0 };
     }
-    allOrders.forEach(o => {
+    branchOrders.forEach(o => {
       const key = o.created_date?.slice(0,7);
       if (map[key] && ["completed","served"].includes(o.status)) map[key].revenue += (o.total || 0);
     });
     return Object.values(map).map(d => ({ ...d, revenue: +(d.revenue / 100000).toFixed(2) }));
-  }, [allOrders]);
+  }, [branchOrders]);
 
-const GRID_COLOR = isDark
-  ? "rgba(255,255,255,0.15)"
-  : "rgba(0,0,0,0.15)";
+  const GRID_COLOR = isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)";
+  const AXIS_COLOR = isDark ? "rgba(255,255,255,0.8)" : "rgba(0,0,0,0.8)";
 
-const AXIS_COLOR = isDark
-  ? "rgba(255,255,255,0.8)"
-  : "rgba(0,0,0,0.8)";
-
-  // Top selling items
   const topItemsData = useMemo(() => {
     const counts = {};
-    allOrders.forEach(o => {
+    branchOrders.forEach(o => {
       (o.items || []).forEach(item => {
         if (item.name) counts[item.name] = (counts[item.name] || 0) + (item.quantity || 1);
       });
     });
     return Object.entries(counts).sort((a,b) => b[1]-a[1]).slice(0,5).map(([name, sold]) => ({ name, sold }));
-  }, [allOrders]);
+  }, [branchOrders]);
 
-  // Channel revenue
   const channelRevenueData = useMemo(() => {
     const map = {};
-    allOrders.forEach(o => {
+    branchOrders.forEach(o => {
       if (!["completed","served"].includes(o.status)) return;
       const ch = (o.type || "other").replace(/_/g," ").replace(/\b\w/g, c => c.toUpperCase());
       if (!map[ch]) map[ch] = { channel: ch, revenue: 0, orders: 0 };
@@ -138,9 +134,8 @@ const AXIS_COLOR = isDark
       map[ch].orders++;
     });
     return Object.values(map);
-  }, [allOrders]);
+  }, [branchOrders]);
 
-  // Low stock alerts
   const lowStockItems = inventory.filter(i => i.stock <= i.min_level);
 
   const stateWise = branches.reduce((acc, b) => {
@@ -165,15 +160,19 @@ const AXIS_COLOR = isDark
     todayRevenue >= 100000 ? { type: "success", icon: CheckCircle, color: "text-green-400 bg-green-500/10 border-green-500/20", message: `Today's revenue ₹${todayRevenue.toLocaleString("en-IN")} — target achieved!`, time: "Today" } : null,
   ].filter(Boolean);
 
-  const recentOrders = allOrders.slice(0, 5);
+  const recentOrders = branchOrders.slice(0, 5);
 
   return (
     <TooltipProvider>
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Admin Dashboard</h1>
-          <p className="text-sm text-muted-foreground">Welcome back — here's what's happening today</p>
+          <h1 className="text-2xl font-bold text-foreground">
+            {isAllBranches ? "Admin Dashboard" : `${branch} Dashboard`}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Welcome back — {isAllBranches ? "showing all branches" : `showing ${branch} only`}
+          </p>
         </div>
         <div className="flex items-center gap-2 px-3 py-1.5 glass rounded-xl">
           <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
@@ -181,10 +180,9 @@ const AXIS_COLOR = isDark
         </div>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard title="Today's Revenue" value={`₹${todayRevenue.toLocaleString("en-IN")}`} change="" icon={IndianRupee} onClick={() => navigate("/reports")} />
-        <StatCard title="Total Orders" value={String(allOrders.length)} change="" icon={ShoppingCart} onClick={() => navigate("/orders")} />
+        <StatCard title="Total Orders" value={String(branchOrders.length)} change="" icon={ShoppingCart} onClick={() => navigate("/orders")} />
         <StatCard title="Active Orders" value={String(activeOrders.length)} change="" icon={Clock} onClick={() => navigate("/kitchen")} />
         <StatCard title="Avg Order Value" value={`₹${avgOrderValue.toLocaleString("en-IN")}`} change="" icon={TrendingUp} onClick={() => navigate("/reports")} />
         <StatCard title="Customers Today" value={String(customersToday)} change="" icon={Users} onClick={() => navigate("/orders")} />
@@ -212,7 +210,6 @@ const AXIS_COLOR = isDark
         <StatCard title="Available Tables" value={String(availableTables)} change="" icon={TableIcon} onClick={() => navigate("/tables")} />
       </div>
 
-      {/* Alerts */}
       {ALERTS.length > 0 && (
         <div className="glass rounded-2xl p-4">
           <div className="flex items-center gap-2 mb-3">
@@ -235,7 +232,6 @@ const AXIS_COLOR = isDark
         </div>
       )}
 
-      {/* Row 1: Weekly Revenue + Order Distribution */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 glass rounded-2xl p-5">
           <h3 className="text-sm font-semibold text-foreground mb-4">Weekly Revenue (Last 7 Days)</h3>
@@ -283,7 +279,6 @@ const AXIS_COLOR = isDark
         </div>
       </div>
 
-      {/* Row 2: Hourly Orders + Top Items */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="glass rounded-2xl p-5">
           <h3 className="text-sm font-semibold text-foreground mb-4">Hourly Orders (Today)</h3>
@@ -316,7 +311,6 @@ const AXIS_COLOR = isDark
         </div>
       </div>
 
-      {/* Row 3: Monthly Trend + Channel Revenue */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="glass rounded-2xl p-5">
           <h3 className="text-sm font-semibold text-foreground mb-4">Monthly Revenue Trend (₹ Lakhs)</h3>
@@ -349,11 +343,10 @@ const AXIS_COLOR = isDark
         </div>
       </div>
 
-      {/* Recent Orders */}
       <div className="glass rounded-2xl p-5">
         <h3 className="text-sm font-semibold text-foreground mb-4">Recent Orders</h3>
         {recentOrders.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-6">No orders yet today</p>
+          <p className="text-sm text-muted-foreground text-center py-6">No orders yet</p>
         ) : (
           <div className="space-y-2">
             {recentOrders.map((o) => (
@@ -377,5 +370,3 @@ const AXIS_COLOR = isDark
     </TooltipProvider>
   );
 }
-
-

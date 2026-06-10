@@ -18,6 +18,8 @@ const MODULE_LABELS = {
   Vendor:         "Vendor",
   PurchaseOrder:  "Purchase Order",
   Table:          "Table",
+  Expense: "Expense",
+  Branch:  "Branch",
 };
 
 export default function RecycleBin() {
@@ -106,7 +108,12 @@ export default function RecycleBin() {
         case "Order":
           await base44.entities.Order.create(cleanData);
           break;
-
+        case "Expense":
+          await base44.entities.Expense.create(cleanData);
+          break;
+        case "Branch":
+          await base44.entities.Branch.create(cleanData);
+          break;
         case "Online Orders":
           await base44.entities.Order.create(cleanData);  // same entity, type field distinguishes it
           break;

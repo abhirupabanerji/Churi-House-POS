@@ -37,7 +37,7 @@ import DeliveryManagement from './pages/DeliveryManagement';
 import Vendors from './pages/Vendors';
 import PurchaseOrders from './pages/PurchaseOrders';
 // Analytics merged into Reports
-import Spending from './pages/Spending';
+import Expenses from './pages/Expenses';
 import CashDrawer from './pages/CashDrawer';
 import TaxCompliance from './pages/TaxCompliance';
 import Refunds from './pages/Refunds';
@@ -108,7 +108,7 @@ const AuthenticatedApp = () => {
           <Route path="/vendors" element={<Vendors />} />
           <Route path="/purchase-orders" element={<PurchaseOrders />} />
 
-          <Route path="/spending" element={<Spending />} />
+          <Route path="/expenses" element={<Expenses />} />
           <Route path="/cash-drawer" element={<CashDrawer />} />
           <Route path="/tax" element={<TaxCompliance />} />
           <Route path="/refunds" element={<Refunds />} />

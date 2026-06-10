@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, LineChart, Line } from "recharts";
 import { base44 } from "@/api/base44Client";
 import { toast } from "sonner";
+import { getCurrentUserBranch } from "@/lib/branchFilter";
 
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const tooltipStyle = {
@@ -15,11 +16,9 @@ const tooltipStyle = {
   fontSize: 12,
   boxShadow: "0 4px 20px rgba(0,0,0,0.1)"
 };
-
 const GRID_COLOR = "hsl(var(--border))";
 const AXIS_COLOR = "hsl(var(--muted-foreground))";
 const TICK_STYLE = { fill: "hsl(var(--muted-foreground))" };
-
 
 function downloadCSV(data, filename) {
   if (!data.length) { toast.error("No data to export"); return; }
@@ -38,8 +37,10 @@ export default function Reports() {
   const [selectedMonth, setSelectedMonth] = useState("All");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
-  const [branch, setBranch] = useState("All Branches");
   const [exporting, setExporting] = useState(false);
+
+  const { branch: userBranch, isAllBranches } = getCurrentUserBranch();
+  const [branch, setBranch] = useState(isAllBranches ? "All Branches" : userBranch);
 
   useEffect(() => {
     Promise.all([
@@ -55,12 +56,11 @@ export default function Reports() {
 
   const branchOptions = ["All Branches", ...branches];
 
-  // Filter orders by selected branch + month
   const filteredOrders = useMemo(() => {
     return orders.filter(o => {
       if (!o.created_date) return false;
       const oBranch = o.branch_name || o.branch || "Main Branch";
-      if (branch !== "All Branches" && oBranch !== branch) return false;
+      if (branch !== "All Branches" && oBranch.toLowerCase() !== branch.toLowerCase()) return false;
       if (selectedMonth !== "All") {
         const m = MONTHS[new Date(o.created_date).getMonth()];
         if (m !== selectedMonth) return false;
@@ -69,7 +69,6 @@ export default function Reports() {
     });
   }, [orders, branch, selectedMonth]);
 
-  // Monthly revenue + orders trend
   const monthlyData = useMemo(() => {
     const monthsToShow = selectedMonth === "All" ? MONTHS : [selectedMonth];
     return monthsToShow.map(m => {
@@ -77,7 +76,7 @@ export default function Reports() {
         if (!o.created_date) return false;
         const oBranch = o.branch_name || o.branch || "Main Branch";
         const oMonth = MONTHS[new Date(o.created_date).getMonth()];
-        if (branch !== "All Branches" && oBranch !== branch) return false;
+        if (branch !== "All Branches" && oBranch.toLowerCase() !== branch.toLowerCase()) return false;
         return oMonth === m;
       });
       return {
@@ -88,17 +87,16 @@ export default function Reports() {
     });
   }, [orders, branch, selectedMonth]);
 
-  // Branch-wise revenue
   const branchData = useMemo(() => {
-  const bMap = {};
-  orders.forEach(o => {
-    const b = o.branch_name || "Main Branch";
-    if (branch !== "All Branches" && b !== branch) return;
-    if (!bMap[b]) bMap[b] = { branch: b, revenue: 0 };
-    bMap[b].revenue += (Number(o.total) || 0);
-  });
-  return Object.values(bMap).sort((a, b) => b.revenue - a.revenue);
-}, [orders, branch]);
+    const bMap = {};
+    orders.forEach(o => {
+      const b = o.branch_name || "Main Branch";
+      if (branch !== "All Branches" && b.toLowerCase() !== branch.toLowerCase()) return;
+      if (!bMap[b]) bMap[b] = { branch: b, revenue: 0 };
+      bMap[b].revenue += (Number(o.total) || 0);
+    });
+    return Object.values(bMap).sort((a, b) => b.revenue - a.revenue);
+  }, [orders, branch]);
 
   const totalRevenue = filteredOrders.reduce((s, o) => s + (Number(o.total) || 0), 0);
   const totalOrders = filteredOrders.length;
@@ -113,26 +111,28 @@ export default function Reports() {
     const filtered = allOrders.filter(o => {
       if (dateFrom && o.created_date && o.created_date < dateFrom) return false;
       if (dateTo && o.created_date && o.created_date > dateTo + "T23:59:59") return false;
-      if (branch !== "All Branches" && (o.branch_name || o.branch || "Main Branch") !== branch) return false;
+      if (branch !== "All Branches" && (o.branch_name || o.branch || "Main Branch").toLowerCase() !== branch.toLowerCase()) return false;
       return true;
     });
     downloadCSV(filtered.length ? filtered : allOrders, `orders_report_${new Date().toISOString().split("T")[0]}.csv`);
     setExporting(false);
     toast.success("Report exported!");
   };
+
   return (
     <div className="p-6 space-y-5">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Reports & Analytics</h1>
-          <p className="text-sm text-muted-foreground">Business performance insights</p>
+          <p className="text-sm text-muted-foreground">
+            {isAllBranches ? "All branches" : branch}
+          </p>
         </div>
         <Button onClick={handleExport} disabled={exporting} className="bg-primary hover:bg-primary/90 glow-orange">
           <Download className="w-4 h-4 mr-2" />{exporting ? "Exporting..." : "Export CSV"}
         </Button>
       </div>
 
-      {/* Filters */}
       <div className="glass rounded-xl p-4 flex flex-wrap gap-3 items-end">
         <div className="space-y-1">
           <p className="text-[10px] text-muted-foreground uppercase font-medium">Month</p>
@@ -141,15 +141,20 @@ export default function Reports() {
             {MONTHS.map(m => <option key={m} value={m}>{m}</option>)}
           </select>
         </div>
+
         <div className="space-y-1">
           <p className="text-[10px] text-muted-foreground uppercase font-medium">Branch</p>
-          <select value={branch} onChange={e => setBranch(e.target.value)} className="h-9 rounded-md bg-secondary border border-white/10 text-sm px-3 text-foreground">
-            {loading
-              ? <option>Loading...</option>
-              : branchOptions.map(b => <option key={b} value={b}>{b}</option>)
-            }
-          </select>
+          {isAllBranches ? (
+            <select value={branch} onChange={e => setBranch(e.target.value)} className="h-9 rounded-md bg-secondary border border-white/10 text-sm px-3 text-foreground">
+              {loading ? <option>Loading...</option> : branchOptions.map(b => <option key={b} value={b}>{b}</option>)}
+            </select>
+          ) : (
+            <div className="h-9 flex items-center px-3 rounded-md bg-secondary/50 border border-white/10 text-sm text-primary font-medium min-w-[120px]">
+              {userBranch}
+            </div>
+          )}
         </div>
+
         <div className="space-y-1">
           <p className="text-[10px] text-muted-foreground uppercase font-medium">Date Range (for export)</p>
           <div className="flex items-center gap-2">
@@ -162,7 +167,6 @@ export default function Reports() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Monthly Revenue Trend */}
         <div className="glass rounded-2xl p-5">
           <h3 className="text-sm font-semibold text-foreground mb-4">Monthly Revenue Trend</h3>
           <ResponsiveContainer width="100%" height={260}>
@@ -177,12 +181,11 @@ export default function Reports() {
           </ResponsiveContainer>
         </div>
 
-        {/* Branch-wise Revenue */}
         <div className="glass rounded-2xl p-5">
           <h3 className="text-sm font-semibold text-foreground mb-4">Branch-wise Revenue</h3>
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={branchData} layout="vertical">
-              <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR}/>
+              <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} />
               <XAxis type="number" stroke={AXIS_COLOR} fontSize={11} tick={TICK_STYLE} tickFormatter={v => `₹${(v/1000).toFixed(0)}K`} />
               <YAxis type="category" dataKey="branch" stroke={AXIS_COLOR} fontSize={11} width={80} tick={TICK_STYLE} />
               <Tooltip contentStyle={tooltipStyle} formatter={v => `₹${Number(v).toLocaleString()}`} />
@@ -191,7 +194,6 @@ export default function Reports() {
           </ResponsiveContainer>
         </div>
 
-        {/* Monthly Order Volume */}
         <div className="glass rounded-2xl p-5">
           <h3 className="text-sm font-semibold text-foreground mb-4">Monthly Order Volume</h3>
           <ResponsiveContainer width="100%" height={220}>
@@ -205,7 +207,6 @@ export default function Reports() {
           </ResponsiveContainer>
         </div>
 
-        {/* Key Metrics */}
         <div className="glass rounded-2xl p-5">
           <h3 className="text-sm font-semibold text-foreground mb-4">Key Metrics</h3>
           <div className="grid grid-cols-2 gap-4">

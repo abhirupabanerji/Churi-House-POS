@@ -5,12 +5,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { fieldError, positiveNumber, required } from "@/lib/formValidation";
+import { softDelete } from "@/lib/softDelete";
+import { logAudit } from "@/lib/auditLog";
+import { toast } from "sonner";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 const CATS = ["Groceries","Staff","Utilities","Rent","Marketing","Maintenance","Misc"];
 const tt = { background: "rgba(20,20,20,0.95)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, color: "#fff", fontSize: 12 };
 
-export default function Spending() {
+export default function Expense() {
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -35,8 +38,31 @@ export default function Spending() {
     return Object.keys(next).length === 0;
   };
 
-  const save = async () => { if (!validate()) return; await base44.entities.Expense.create(form); setShowForm(false); load(); };
-  const remove = async (id) => { await base44.entities.Expense.delete(id); load(); };
+  const save = async () => {
+    if (!validate()) return;
+    await base44.entities.Expense.create(form);
+    setShowForm(false);
+    load();
+  };
+
+  const remove = async (e) => {
+    if (!confirm(`Delete expense "${e.description}"?`)) return;
+    try {
+      await softDelete({
+        module: "Expense",
+        id: e.id,
+        name: e.description || `Expense-${e.id}`,
+        data: e,
+      });
+      await base44.entities.Expense.delete(e.id);
+      logAudit({ action: `Expense deleted: ${e.description}`, type: "finance", details: `₹${e.amount} | ${e.category}` });
+      toast.success(`🗑️ "${e.description}" moved to Recycle Bin.`);
+      load();
+    } catch (err) {
+      toast.error("Failed to delete expense.");
+      console.error(err);
+    }
+  };
 
   const visibleExpenses = expenses.filter(e => {
     if (filterCat !== "All" && e.category !== filterCat) return false;
@@ -51,11 +77,10 @@ export default function Spending() {
   return (
     <div className="p-6 space-y-5">
       <div className="flex items-center justify-between">
-        <div><h1 className="text-2xl font-bold text-foreground">Spending</h1><p className="text-sm text-muted-foreground">Showing: ₹{total.toLocaleString()} ({visibleExpenses.length} records)</p></div>
+        <div><h1 className="text-2xl font-bold text-foreground">Expenses</h1><p className="text-sm text-muted-foreground">Showing: ₹{total.toLocaleString()} ({visibleExpenses.length} records)</p></div>
         <Button onClick={() => { setErrors({}); setShowForm(true); }} className="bg-primary hover:bg-primary/90 glow-orange"><Plus className="w-4 h-4 mr-1" /> Add Expense</Button>
       </div>
 
-      {/* Filters */}
       <div className="glass rounded-xl p-4 flex flex-wrap gap-3 items-end">
         <div className="space-y-1">
           <p className="text-[10px] text-muted-foreground uppercase font-medium">Category</p>
@@ -109,7 +134,7 @@ export default function Spending() {
                   <td className="p-4 font-semibold text-red-400">₹{(e.amount||0).toLocaleString()}</td>
                   <td className="p-4 text-muted-foreground">{e.date}</td>
                   <td className="p-4 text-muted-foreground">{e.payment_method}</td>
-                  <td className="p-4"><Button size="sm" variant="outline" className="h-7 px-2 bg-red-500/10 border-red-500/20 text-red-400" onClick={() => remove(e.id)}><Trash2 className="w-3 h-3" /></Button></td>
+                  <td className="p-4"><Button size="sm" variant="outline" className="h-7 px-2 bg-red-500/10 border-red-500/20 text-red-400" onClick={() => remove(e)}><Trash2 className="w-3 h-3" /></Button></td>
                 </tr>
               ))}
             </tbody>
@@ -133,7 +158,7 @@ export default function Spending() {
                 </select>
               </div>
               <div className="space-y-1.5 col-span-2"><Label className="text-xs">Description *</Label><Input value={form.description} onChange={e=>{ setForm(f=>({...f,description:e.target.value})); setErrors(er=>({...er,description:""})); }} className={`h-9 bg-white/5 border-white/10 text-sm ${fieldError(errors, "description") ? "border-red-500" : ""}`} />{fieldError(errors, "description") && <p className="text-xs text-red-400">{fieldError(errors, "description")}</p>}</div>
-              <div className="space-y-1.5"><Label className="text-xs">Amount (?) *</Label><Input type="number" value={form.amount} onChange={e=>{ setForm(f=>({...f,amount:e.target.value})); setErrors(er=>({...er,amount:""})); }} className={`h-9 bg-white/5 border-white/10 text-sm ${fieldError(errors, "amount") ? "border-red-500" : ""}`} />{fieldError(errors, "amount") && <p className="text-xs text-red-400">{fieldError(errors, "amount")}</p>}</div>
+              <div className="space-y-1.5"><Label className="text-xs">Amount (₹) *</Label><Input type="number" value={form.amount} onChange={e=>{ setForm(f=>({...f,amount:e.target.value})); setErrors(er=>({...er,amount:""})); }} className={`h-9 bg-white/5 border-white/10 text-sm ${fieldError(errors, "amount") ? "border-red-500" : ""}`} />{fieldError(errors, "amount") && <p className="text-xs text-red-400">{fieldError(errors, "amount")}</p>}</div>
               <div className="space-y-1.5"><Label className="text-xs">Date *</Label><Input type="date" value={form.date} onChange={e=>{ setForm(f=>({...f,date:e.target.value})); setErrors(er=>({...er,date:""})); }} className={`h-9 bg-white/5 border-white/10 text-sm ${fieldError(errors, "date") ? "border-red-500" : ""}`} />{fieldError(errors, "date") && <p className="text-xs text-red-400">{fieldError(errors, "date")}</p>}</div>
             </div>
             <div className="flex gap-3 pt-1">

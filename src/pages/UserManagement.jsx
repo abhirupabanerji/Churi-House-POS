@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { UserPlus, Pencil, Trash2, X, KeyRound, Lock } from "lucide-react";
+import { UserPlus, Pencil, Trash2, X, KeyRound, Lock, Plus, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,8 +9,6 @@ import { toast } from "sonner";
 import { fieldError } from "@/lib/formValidation";
 
 const ROLES = ["super_admin", "admin", "manager", "cashier", "staff"];
-const BRANCHES = ["All Branches", "Main Branch", "Jubilee Hills", "Banjara Hills", "Secunderabad"];
-const FRANCHISES = ["Churi House", "Jubilee Hills", "Banjara Hills", "Secunderabad"];
 
 const roleColor = {
   super_admin: "bg-red-500/10 text-red-400",
@@ -22,11 +20,13 @@ const roleColor = {
 
 const emptyForm = {
   full_name: "", username: "", email: "", password: "",
-  role: "cashier", branch_id: "All Branches", franchise: "Churi House", status: "active",
+  role: "cashier", branch_id: "All Branches", franchise: "", status: "active",
 };
 
 export default function UserManagement() {
   const [users, setUsers] = useState([]);
+  const [branches, setBranches] = useState([]);
+  const [franchises, setFranchises] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -34,6 +34,12 @@ export default function UserManagement() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [formErrors, setFormErrors] = useState({});
+
+  // Franchise manager modal
+  const [showFranchiseManager, setShowFranchiseManager] = useState(false);
+  const [newFranchiseName, setNewFranchiseName] = useState("");
+  const [editingFranchise, setEditingFranchise] = useState(null); // { id, name }
+  const [franchiseError, setFranchiseError] = useState("");
 
   // Password reset
   const [showPwd, setShowPwd] = useState(false);
@@ -47,24 +53,37 @@ export default function UserManagement() {
   const [newPin, setNewPin] = useState("");
   const [pinError, setPinError] = useState("");
 
-  const load = () =>
-    base44.entities.AppUser.list("full_name", 100)
-      .then(d => { setUsers(d); setLoading(false); })
-      .catch(() => setLoading(false));
+  const loadAll = () => {
+    Promise.all([
+      base44.entities.AppUser.list("full_name", 100),
+      base44.entities.Branch.list("name", 100),
+      base44.entities.Franchise.list("name", 100),
+    ]).then(([userData, branchData, franchiseData]) => {
+      setUsers(userData || []);
+      setBranches((branchData || []).map(b => b.name).filter(Boolean));
+      setFranchises(franchiseData || []);
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { loadAll(); }, []);
+
+  const branchOptions = ["All Branches", ...branches];
+  const franchiseOptions = franchises.map(f => f.name).filter(Boolean);
 
   const openNew = () => {
-    setEditing(null); setForm(emptyForm);
+    setEditing(null);
+    setForm({ ...emptyForm, franchise: franchiseOptions[0] || "" });
     setError(""); setFormErrors({}); setShowForm(true);
   };
+
   const openEdit = (u) => {
     setEditing(u);
     setForm({
       full_name: u.full_name || "", username: u.username || "",
       email: u.email || "", password: "",
       role: u.role || "staff", branch_id: u.branch_id || "All Branches",
-      franchise: u.franchise || "Churi House", status: u.status || "active",
+      franchise: u.franchise || franchiseOptions[0] || "", status: u.status || "active",
     });
     setError(""); setFormErrors({}); setShowForm(true);
   };
@@ -89,7 +108,7 @@ export default function UserManagement() {
       }
       setShowForm(false);
       toast.success(`✅ ${form.full_name || form.username} ${editing ? "updated" : "added"} successfully.`);
-      load();
+      loadAll();
     } catch (err) {
       setError(err?.message || "Failed to save user.");
       toast.error("❌ Something went wrong.");
@@ -101,7 +120,7 @@ export default function UserManagement() {
     await base44.entities.AppUser.delete(u.id);
     logAudit({ action: `User deleted: ${u.username}`, type: "admin" });
     toast.success(`🗑️ ${u.username} permanently deleted.`);
-    load();
+    loadAll();
   };
 
   const resetPassword = async () => {
@@ -117,7 +136,7 @@ export default function UserManagement() {
     await base44.entities.AppUser.update(u.id, { status: newStatus });
     logAudit({ action: `User ${newStatus}: ${u.username}`, type: "admin" });
     toast.success(`✅ ${u.username} marked ${newStatus}.`);
-    load();
+    loadAll();
   };
 
   const savePin = () => {
@@ -128,6 +147,28 @@ export default function UserManagement() {
     setShowPin(false); setNewPin(""); setPinError("");
   };
 
+  // ── Franchise CRUD ──────────────────────────────────────────────────────────
+  const saveFranchise = async () => {
+    if (!newFranchiseName.trim()) { setFranchiseError("Name is required."); return; }
+    setFranchiseError("");
+    if (editingFranchise) {
+      await base44.entities.Franchise.update(editingFranchise.id, { name: newFranchiseName.trim() });
+      toast.success(`✅ Franchise updated.`);
+    } else {
+      await base44.entities.Franchise.create({ name: newFranchiseName.trim() });
+      toast.success(`✅ Franchise added.`);
+    }
+    setNewFranchiseName(""); setEditingFranchise(null);
+    loadAll();
+  };
+
+  const deleteFranchise = async (f) => {
+    if (!confirm(`Delete franchise "${f.name}"?`)) return;
+    await base44.entities.Franchise.delete(f.id);
+    toast.success(`🗑️ ${f.name} deleted.`);
+    loadAll();
+  };
+
   return (
     <div className="p-6 space-y-5">
       {/* Header */}
@@ -136,9 +177,15 @@ export default function UserManagement() {
           <h1 className="text-2xl font-bold text-foreground">User Management</h1>
           <p className="text-sm text-muted-foreground">{users.length} users</p>
         </div>
-        <Button onClick={openNew} className="bg-primary hover:bg-primary/90 glow-orange">
-          <UserPlus className="w-4 h-4 mr-1" /> Add User
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" className="bg-white/5 border-white/10"
+            onClick={() => { setShowFranchiseManager(true); setNewFranchiseName(""); setEditingFranchise(null); setFranchiseError(""); }}>
+            <Building2 className="w-4 h-4 mr-1" /> Manage Franchises
+          </Button>
+          <Button onClick={openNew} className="bg-primary hover:bg-primary/90 glow-orange">
+            <UserPlus className="w-4 h-4 mr-1" /> Add User
+          </Button>
+        </div>
       </div>
 
       {/* Users Table */}
@@ -180,14 +227,10 @@ export default function UserManagement() {
                   <td className="p-4 text-xs text-muted-foreground">{u.branch_id || "All"}</td>
                   <td className="p-4 text-xs text-muted-foreground">{u.franchise || "—"}</td>
                   <td className="p-4">
-                    <button
-                      onClick={() => toggleStatus(u)}
+                    <button onClick={() => toggleStatus(u)}
                       className={`text-[10px] font-medium px-2 py-0.5 rounded-full cursor-pointer transition-colors ${
-                        u.status === "active"
-                          ? "bg-green-500/10 text-green-400 hover:bg-green-500/20"
-                          : "bg-red-500/10 text-red-400 hover:bg-red-500/20"
-                      }`}
-                    >
+                        u.status === "active" ? "bg-green-500/10 text-green-400 hover:bg-green-500/20" : "bg-red-500/10 text-red-400 hover:bg-red-500/20"
+                      }`}>
                       {u.status}
                     </button>
                   </td>
@@ -231,15 +274,13 @@ export default function UserManagement() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5 col-span-2">
                 <Label className="text-xs">Full Name *</Label>
-                <Input value={form.full_name} onChange={e => { setForm(f => ({ ...f, full_name: e.target.value })); setFormErrors(er => ({ ...er, full_name: "" })); }}
-                  className={`h-9 bg-white/5 border-white/10 text-sm ${fieldError(formErrors, "full_name") ? "border-red-500" : ""}`} />
-                {fieldError(formErrors, "full_name") && <p className="text-xs text-red-400">{fieldError(formErrors, "full_name")}</p>}
+                <Input value={form.full_name} onChange={e => setForm(f => ({ ...f, full_name: e.target.value }))}
+                  className="h-9 bg-white/5 border-white/10 text-sm" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Username *</Label>
-                <Input value={form.username} onChange={e => { setForm(f => ({ ...f, username: e.target.value })); setFormErrors(er => ({ ...er, username: "" })); }}
-                  className={`h-9 bg-white/5 border-white/10 text-sm ${fieldError(formErrors, "username") ? "border-red-500" : ""}`} />
-                {fieldError(formErrors, "username") && <p className="text-xs text-red-400">{fieldError(formErrors, "username")}</p>}
+                <Input value={form.username} onChange={e => setForm(f => ({ ...f, username: e.target.value }))}
+                  className="h-9 bg-white/5 border-white/10 text-sm" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Email</Label>
@@ -248,10 +289,8 @@ export default function UserManagement() {
               </div>
               <div className="space-y-1.5 col-span-2">
                 <Label className="text-xs">{editing ? "New Password (leave blank to keep)" : "Password *"}</Label>
-                <Input type="password" value={form.password}
-                  onChange={e => { setForm(f => ({ ...f, password: e.target.value })); setFormErrors(er => ({ ...er, password: "" })); }}
-                  className={`h-9 bg-white/5 border-white/10 text-sm ${fieldError(formErrors, "password") ? "border-red-500" : ""}`} />
-                {fieldError(formErrors, "password") && <p className="text-xs text-red-400">{fieldError(formErrors, "password")}</p>}
+                <Input type="password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+                  className="h-9 bg-white/5 border-white/10 text-sm" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Role</Label>
@@ -268,18 +307,34 @@ export default function UserManagement() {
                   <option value="inactive">Inactive</option>
                 </select>
               </div>
+
+              {/* Franchise dropdown — from Franchise entity */}
               <div className="space-y-1.5">
-                <Label className="text-xs">Franchise</Label>
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs">Franchise</Label>
+                  <button type="button" onClick={() => { setShowFranchiseManager(true); setNewFranchiseName(""); setEditingFranchise(null); setFranchiseError(""); }}
+                    className="text-[10px] text-primary hover:underline flex items-center gap-0.5">
+                    <Plus className="w-2.5 h-2.5" /> Manage
+                  </button>
+                </div>
                 <select value={form.franchise} onChange={e => setForm(f => ({ ...f, franchise: e.target.value }))}
                   className="w-full h-9 rounded-md bg-secondary border border-white/10 text-sm px-3 text-foreground">
-                  {FRANCHISES.map(fr => <option key={fr} value={fr}>{fr}</option>)}
+                  {franchiseOptions.length === 0
+                    ? <option value="">No franchises — add one</option>
+                    : franchiseOptions.map(fr => <option key={fr} value={fr}>{fr}</option>)
+                  }
                 </select>
               </div>
+
+              {/* Branch dropdown — from Branch entity */}
               <div className="space-y-1.5">
                 <Label className="text-xs">Branch</Label>
                 <select value={form.branch_id} onChange={e => setForm(f => ({ ...f, branch_id: e.target.value }))}
                   className="w-full h-9 rounded-md bg-secondary border border-white/10 text-sm px-3 text-foreground">
-                  {BRANCHES.map(b => <option key={b} value={b}>{b}</option>)}
+                  {branchOptions.length === 1
+                    ? <option value="All Branches">All Branches (no branches added)</option>
+                    : branchOptions.map(b => <option key={b} value={b}>{b}</option>)
+                  }
                 </select>
               </div>
             </div>
@@ -289,6 +344,64 @@ export default function UserManagement() {
                 {saving ? "Saving..." : editing ? "Save Changes" : "Create User"}
               </Button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Franchise Manager Modal */}
+      {showFranchiseManager && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="glass-strong rounded-2xl p-6 w-full max-w-sm mx-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+                <Building2 className="w-4 h-4" /> Manage Franchises
+              </h2>
+              <button onClick={() => { setShowFranchiseManager(false); setEditingFranchise(null); setNewFranchiseName(""); }}><X className="w-5 h-5 text-muted-foreground" /></button>
+            </div>
+
+            {/* Add / Edit input */}
+            <div className="space-y-1.5">
+              <Label className="text-xs">{editingFranchise ? "Edit Franchise Name" : "New Franchise Name"}</Label>
+              <div className="flex gap-2">
+                <Input value={newFranchiseName}
+                  onChange={e => { setNewFranchiseName(e.target.value); setFranchiseError(""); }}
+                  placeholder="e.g. Churi House North"
+                  className={`h-9 bg-white/5 border-white/10 text-sm flex-1 ${franchiseError ? "border-red-500" : ""}`} />
+                <Button className="h-9 bg-primary hover:bg-primary/90 shrink-0" onClick={saveFranchise}>
+                  {editingFranchise ? "Update" : "Add"}
+                </Button>
+              </div>
+              {franchiseError && <p className="text-xs text-red-400">{franchiseError}</p>}
+              {editingFranchise && (
+                <button onClick={() => { setEditingFranchise(null); setNewFranchiseName(""); }}
+                  className="text-xs text-muted-foreground hover:text-foreground">
+                  ✕ Cancel edit
+                </button>
+              )}
+            </div>
+
+            {/* Franchise list */}
+            <div className="space-y-1.5 max-h-52 overflow-y-auto">
+              {franchises.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-4">No franchises yet.</p>
+              ) : franchises.map(f => (
+                <div key={f.id} className="flex items-center justify-between px-3 py-2 rounded-xl bg-white/5 border border-white/10">
+                  <span className="text-sm text-foreground">{f.name}</span>
+                  <div className="flex gap-1">
+                    <button onClick={() => { setEditingFranchise(f); setNewFranchiseName(f.name); }}
+                      className="p-1 rounded-lg hover:bg-white/10 text-muted-foreground hover:text-foreground transition-colors">
+                      <Pencil className="w-3 h-3" />
+                    </button>
+                    <button onClick={() => deleteFranchise(f)}
+                      className="p-1 rounded-lg hover:bg-red-500/20 text-muted-foreground hover:text-red-400 transition-colors">
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <Button className="w-full bg-primary hover:bg-primary/90" onClick={() => setShowFranchiseManager(false)}>Done</Button>
           </div>
         </div>
       )}
@@ -325,45 +438,30 @@ export default function UserManagement() {
               <button onClick={() => setShowPin(false)}><X className="w-5 h-5 text-muted-foreground" /></button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Set 4-digit app PIN for{" "}
-              <span className="text-foreground font-medium">{pinUser.full_name || pinUser.username}</span>.
-              Used to unlock the entire app.
+              Set 4-digit app PIN for <span className="text-foreground font-medium">{pinUser.full_name || pinUser.username}</span>.
             </p>
             {localStorage.getItem(`app_pin_${pinUser.username}`) && (
-              <p className="text-xs text-yellow-400 bg-yellow-500/10 rounded-lg px-3 py-2">
-                PIN already set. Entering a new PIN will replace it.
-              </p>
+              <p className="text-xs text-yellow-400 bg-yellow-500/10 rounded-lg px-3 py-2">PIN already set. Entering a new PIN will replace it.</p>
             )}
             <div className="space-y-1.5">
               <Label className="text-xs">4-Digit PIN *</Label>
-              <Input
-                type="password"
-                inputMode="numeric"
-                maxLength={4}
-                value={newPin}
+              <Input type="password" inputMode="numeric" maxLength={4} value={newPin}
                 onChange={e => setNewPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                placeholder="••••"
-                className="h-9 bg-white/5 border-white/10 text-sm tracking-widest text-center text-lg"
-              />
+                placeholder="••••" className="h-9 bg-white/5 border-white/10 text-sm tracking-widest text-center text-lg" />
               {pinError && <p className="text-xs text-red-400">{pinError}</p>}
             </div>
             <div className="flex gap-3 pt-1">
               <Button variant="outline" className="flex-1 bg-white/5 border-white/10" onClick={() => setShowPin(false)}>Cancel</Button>
-              <Button className="flex-1 bg-primary hover:bg-primary/90" onClick={savePin} disabled={newPin.length !== 4}>
-                Set PIN
-              </Button>
+              <Button className="flex-1 bg-primary hover:bg-primary/90" onClick={savePin} disabled={newPin.length !== 4}>Set PIN</Button>
             </div>
             {localStorage.getItem(`app_pin_${pinUser.username}`) && (
-              <Button
-                variant="outline"
-                className="w-full bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20"
+              <Button variant="outline" className="w-full bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20"
                 onClick={() => {
                   localStorage.removeItem(`app_pin_${pinUser.username}`);
                   logAudit({ action: `App PIN removed for: ${pinUser.username}`, type: "admin" });
                   toast.success(`✅ App PIN removed for ${pinUser.full_name || pinUser.username}.`);
                   setShowPin(false);
-                }}
-              >
+                }}>
                 Remove PIN
               </Button>
             )}

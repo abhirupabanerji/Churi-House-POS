@@ -7,7 +7,7 @@ import { toast } from "sonner";
 
 const EXPORTS = [
   { id: "orders", name: "Sales / Orders Report", desc: "All orders with items, totals, and status", entity: "Order" },
-  { id: "expenses", name: "Spending / Expenses", desc: "All expense records by category", entity: "Expense" },
+  { id: "expenses", name: "Spending / Expenses", desc: "All expense records by category", entity: "Expenses" },
   { id: "inventory", name: "Inventory Report", desc: "Current stock levels and costs", entity: "InventoryItem" },
   { id: "vendors", name: "Vendor List", desc: "All vendors with balances and status", entity: "Vendor" },
   { id: "vendor_payments", name: "Vendor Payments", desc: "All vendor payment records", entity: "VendorPayment" },
