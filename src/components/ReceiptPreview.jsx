@@ -39,14 +39,16 @@ export default function ReceiptPreview({ settings, order = SAMPLE_ORDER, onClose
   const orderTypeLabel = ORDER_TYPE_LABELS[order.type] || order.type;
   const orderTypeColor = ORDER_TYPE_COLORS[order.type] || "bg-gray-100 text-gray-700";
 
-  // Resolve all settings with no hardcoded fallbacks
-  const header   = settings?.receipt_header || "Churi House";
-  const tagline  = settings?.tagline || "";
-  const address  = settings?.address || "";
-  const phone    = settings?.phone || "";
-  const gstin    = settings?.gstin || "";
-  const footer   = settings?.receipt_footer || "Thank you!";
-  const note     = settings?.receipt_note || "";
+  const header      = settings?.receipt_header || "Churi House";
+  const tagline     = settings?.tagline || "";
+  const address     = settings?.address || "";
+  const phone       = settings?.phone || "";
+  // ── fixed: was reading settings.gstin, field is gst_number ──
+  const gstNumber   = settings?.gst_number || settings?.gstin || "";
+  const fssaiNumber = settings?.fssai_number || "";
+  const footer      = settings?.receipt_footer || "Thank you!";
+  const note        = settings?.receipt_note || "";
+  const logoUrl     = settings?.receipt_logo_url || "";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
@@ -61,23 +63,30 @@ export default function ReceiptPreview({ settings, order = SAMPLE_ORDER, onClose
           </div>
         </div>
 
-        <div className="bg-white text-black rounded-xl p-5 font-mono text-xs space-y-2 print:shadow-none" id="receipt-content">
-          {settings?.receipt_logo_url && (
-            <img src={settings.receipt_logo_url} className="h-10 mx-auto mb-2" alt="logo" />
+        <div className="bg-white text-black rounded-xl p-5 font-mono text-xs space-y-2 print:shadow-none max-h-[75vh] overflow-y-auto" id="receipt-content">
+
+          {/* Logo — respects show_logo toggle */}
+          {settings?.show_logo !== false && logoUrl && (
+            <img src={logoUrl} className="h-10 mx-auto mb-2 object-contain" alt="logo" />
           )}
 
           {/* Header */}
           <div className="text-center border-b border-dashed border-gray-300 pb-2">
             <p className="font-bold text-sm">{header}</p>
             {tagline && <p className="text-gray-400 text-[10px] italic">{tagline}</p>}
-            {settings?.show_branch_address && address && (
+            {settings?.show_branch_address !== false && address && (
               <p className="text-gray-500 text-[10px]">{address}</p>
             )}
-            {settings?.show_phone && phone && (
+            {settings?.show_phone !== false && phone && (
               <p className="text-gray-500 text-[10px]">Tel: {phone}</p>
             )}
-            {settings?.show_gst && gstin && (
-              <p className="text-gray-500 text-[10px]">GSTIN: {gstin}</p>
+            {/* GST Number */}
+            {settings?.show_gst_number !== false && gstNumber && (
+              <p className="text-gray-500 text-[10px]">GSTIN: {gstNumber}</p>
+            )}
+            {/* FSSAI Number */}
+            {settings?.show_fssai_number !== false && fssaiNumber && (
+              <p className="text-gray-500 text-[10px]">FSSAI Lic. No: {fssaiNumber}</p>
             )}
           </div>
 
@@ -88,12 +97,12 @@ export default function ReceiptPreview({ settings, order = SAMPLE_ORDER, onClose
           </div>
 
           {/* Order Type Badge + Table */}
-          {settings?.show_order_type && (
+          {settings?.show_order_type !== false && (
             <div className="flex items-center gap-2 text-[10px]">
               <span className={`px-2 py-0.5 rounded-full font-semibold text-[9px] ${orderTypeColor}`}>
                 {orderTypeLabel}
               </span>
-              {order.table_number && (
+              {settings?.show_table_number !== false && order.table_number && (
                 <span className="text-gray-500">Table: {order.table_number}</span>
               )}
               {settings?.show_server_name && order.billed_by && (
@@ -123,13 +132,13 @@ export default function ReceiptPreview({ settings, order = SAMPLE_ORDER, onClose
           {/* Totals */}
           <div className="border-t border-dashed border-gray-300 pt-2 space-y-0.5">
             <div className="flex justify-between text-gray-600"><span>Subtotal</span><span>₹{Number(order.subtotal).toFixed(0)}</span></div>
-            {settings?.show_discount && (
+            {settings?.show_discount !== false && (
               <div className="flex justify-between text-green-600"><span>Discount</span><span>-₹{order.discount ?? 0}</span></div>
             )}
-            {settings?.show_gst && (
+            {settings?.show_gst !== false && (
               <div className="flex justify-between text-gray-600"><span>GST (5%)</span><span>₹{Number(order.tax).toFixed(1)}</span></div>
             )}
-            {settings?.show_payment_method && order.payment_method && (
+            {settings?.show_payment_method !== false && order.payment_method && (
               <div className="flex justify-between text-gray-500 text-[10px]"><span>Payment</span><span className="capitalize">{order.payment_method}</span></div>
             )}
             <div className="flex justify-between font-bold text-sm pt-1 border-t border-gray-300">
@@ -144,6 +153,16 @@ export default function ReceiptPreview({ settings, order = SAMPLE_ORDER, onClose
               <span>{billedBy}</span>
             </div>
           </div>
+
+          {/* UPI QR Placeholder */}
+          {settings?.show_upi_qr && settings?.upi_id && (
+            <div className="text-center border-t border-dashed border-gray-300 pt-2">
+              <p className="text-[10px] text-gray-500 mb-1">Pay via UPI</p>
+              <div className="w-16 h-16 mx-auto bg-gray-100 border border-gray-300 rounded flex items-center justify-center">
+                <span className="text-[8px] text-gray-400 text-center">QR<br/>{settings.upi_id}</span>
+              </div>
+            </div>
+          )}
 
           {/* Footer */}
           <div className="text-center border-t border-dashed border-gray-300 pt-2 space-y-0.5">

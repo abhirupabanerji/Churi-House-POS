@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Search, Package, AlertTriangle, Plus, Pencil, Trash2, X, Upload, Download, CheckCircle, AlertCircle } from "lucide-react";
 import { logAudit } from "@/lib/auditLog";
@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { fieldError, nonNegativeNumber, positiveNumber, required } from "@/lib/formValidation";
 import * as XLSX from "xlsx";
+import { sendLowStockAlerts } from "@/lib/lowStockEmailAlert";
 
 const statusStyle = {
   ok: "bg-green-500/10 text-green-400",
@@ -19,8 +20,6 @@ const statusStyle = {
 
 const INVENTORY_CATEGORIES = ["Produce", "Meat", "Dairy", "Spices", "Beverages", "Dry Goods", "Packaging"];
 const INVENTORY_UNITS = ["kg", "L", "pcs", "box", "dozen", "g", "ml"];
-
-// ── Bulk upload helpers ──────────────────────────────────────────────────────
 
 function downloadInventoryTemplate() {
   const ws = XLSX.utils.aoa_to_sheet([
@@ -51,20 +50,12 @@ function parseInventoryFile(file) {
           const stock = Number(row["Current Stock"] || row["Stock"] || 0);
           const minLevel = Number(row["Min Level"] || 0);
           const costPerUnit = Number(row["Cost per Unit (₹)"] || row["Cost per Unit"] || 0);
-
           if (!name) errors.push("Item Name is required");
           if (!category) errors.push("Category is required");
           if (!unit) errors.push("Unit is required");
           if (isNaN(stock) || stock < 0) errors.push("Valid stock required");
           if (isNaN(minLevel) || minLevel < 0) errors.push("Valid min level required");
-
-          return {
-            _row: i + 2,
-            _errors: errors,
-            name, category, unit,
-            stock, min_level: minLevel,
-            cost_per_unit: costPerUnit,
-          };
+          return { _row: i + 2, _errors: errors, name, category, unit, stock, min_level: minLevel, cost_per_unit: costPerUnit };
         });
         resolve(parsed);
       } catch (err) {
@@ -75,8 +66,6 @@ function parseInventoryFile(file) {
     reader.readAsBinaryString(file);
   });
 }
-
-// ── Bulk Upload Modal ────────────────────────────────────────────────────────
 
 function InventoryBulkUploadModal({ onClose, onImported }) {
   const [step, setStep] = useState(1);
@@ -111,6 +100,9 @@ function InventoryBulkUploadModal({ onClose, onImported }) {
       }
       logAudit({ action: `Bulk import: ${validRows.length} inventory items added`, type: "inventory" });
       toast.success(`✅ ${validRows.length} items imported successfully.`);
+      // Check for low stock items in imported data
+      const lowStockImported = validRows.filter(r => Number(r.stock) <= Number(r.min_level));
+      if (lowStockImported.length > 0) await sendLowStockAlerts(lowStockImported);
       onImported();
       onClose();
     } catch (err) {
@@ -123,13 +115,10 @@ function InventoryBulkUploadModal({ onClose, onImported }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
       <div className="glass-strong rounded-2xl p-6 w-full max-w-2xl mx-4 space-y-4 max-h-[90vh] overflow-y-auto">
-        {/* Header */}
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold text-foreground">Bulk Upload Inventory Items</h2>
           <button onClick={onClose}><X className="w-5 h-5 text-muted-foreground" /></button>
         </div>
-
-        {/* Step indicators */}
         <div className="flex items-center gap-2">
           {["Download Template", "Upload File", "Preview & Import"].map((s, i) => (
             <div key={i} className="flex items-center gap-2">
@@ -142,7 +131,6 @@ function InventoryBulkUploadModal({ onClose, onImported }) {
           ))}
         </div>
 
-        {/* Step 1 — Download Template */}
         {step === 1 && (
           <div className="space-y-4">
             <div className="glass rounded-xl p-4 space-y-2">
@@ -162,7 +150,6 @@ function InventoryBulkUploadModal({ onClose, onImported }) {
           </div>
         )}
 
-        {/* Step 2 — Upload File */}
         {step === 2 && (
           <div className="space-y-4">
             <div className="glass rounded-xl p-4 space-y-2">
@@ -176,42 +163,27 @@ function InventoryBulkUploadModal({ onClose, onImported }) {
               <input type="file" accept=".xlsx,.csv,.xls" className="hidden" onChange={handleFile} />
             </label>
             {fileError && <p className="text-xs text-red-400 bg-red-500/10 rounded-lg px-3 py-2">{fileError}</p>}
-            <Button variant="outline" onClick={() => setStep(1)} className="w-full bg-white/5 border-white/10">
-              ← Back
-            </Button>
+            <Button variant="outline" onClick={() => setStep(1)} className="w-full bg-white/5 border-white/10">← Back</Button>
           </div>
         )}
 
-        {/* Step 3 — Preview */}
         {step === 3 && (
           <div className="space-y-4">
             <div className="flex gap-3">
               <div className="flex-1 glass rounded-xl p-3 flex items-center gap-2">
                 <CheckCircle className="w-4 h-4 text-green-400" />
-                <div>
-                  <p className="text-xs text-muted-foreground">Valid rows</p>
-                  <p className="text-sm font-bold text-green-400">{validRows.length}</p>
-                </div>
+                <div><p className="text-xs text-muted-foreground">Valid rows</p><p className="text-sm font-bold text-green-400">{validRows.length}</p></div>
               </div>
               <div className="flex-1 glass rounded-xl p-3 flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 text-red-400" />
-                <div>
-                  <p className="text-xs text-muted-foreground">Rows with errors</p>
-                  <p className="text-sm font-bold text-red-400">{invalidRows.length}</p>
-                </div>
+                <div><p className="text-xs text-muted-foreground">Rows with errors</p><p className="text-sm font-bold text-red-400">{invalidRows.length}</p></div>
               </div>
             </div>
-
             <div className="glass rounded-xl overflow-hidden max-h-64 overflow-y-auto">
               <table className="w-full text-xs">
                 <thead className="sticky top-0 bg-background/80">
                   <tr className="border-b border-white/10">
-                    <th className="text-left p-2 text-muted-foreground">Row</th>
-                    <th className="text-left p-2 text-muted-foreground">Name</th>
-                    <th className="text-left p-2 text-muted-foreground">Category</th>
-                    <th className="text-left p-2 text-muted-foreground">Unit</th>
-                    <th className="text-left p-2 text-muted-foreground">Stock</th>
-                    <th className="text-left p-2 text-muted-foreground">Status</th>
+                    {["Row","Name","Category","Unit","Stock","Status"].map(h => <th key={h} className="text-left p-2 text-muted-foreground">{h}</th>)}
                   </tr>
                 </thead>
                 <tbody>
@@ -225,28 +197,21 @@ function InventoryBulkUploadModal({ onClose, onImported }) {
                       <td className="p-2">
                         {row._errors.length === 0
                           ? <span className="text-green-400">✓ Valid</span>
-                          : <span className="text-red-400" title={row._errors.join(", ")}>✗ {row._errors[0]}</span>
-                        }
+                          : <span className="text-red-400" title={row._errors.join(", ")}>✗ {row._errors[0]}</span>}
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-
             {invalidRows.length > 0 && (
               <p className="text-xs text-yellow-400 bg-yellow-500/10 rounded-lg px-3 py-2">
                 ⚠ {invalidRows.length} row(s) with errors will be skipped. Only {validRows.length} valid rows will be imported.
               </p>
             )}
-
             <div className="flex gap-3">
               <Button variant="outline" className="flex-1 bg-white/5 border-white/10" onClick={() => setStep(2)}>← Back</Button>
-              <Button
-                className="flex-1 bg-primary hover:bg-primary/90"
-                onClick={handleImport}
-                disabled={validRows.length === 0 || importing}
-              >
+              <Button className="flex-1 bg-primary hover:bg-primary/90" onClick={handleImport} disabled={validRows.length === 0 || importing}>
                 {importing ? "Importing..." : `Import ${validRows.length} Items`}
               </Button>
             </div>
@@ -256,8 +221,6 @@ function InventoryBulkUploadModal({ onClose, onImported }) {
     </div>
   );
 }
-
-// ── Main Component ───────────────────────────────────────────────────────────
 
 export default function Inventory() {
   const [search, setSearch] = useState("");
@@ -272,6 +235,24 @@ export default function Inventory() {
   const { data: items = [], isLoading: loading } = useEntityQuery("InventoryItem", { sort: "name", limit: 100 });
   const invalidate = useInvalidate();
   const load = () => invalidate("InventoryItem");
+
+  // Daily low stock alert check
+  useEffect(() => {
+    if (items.length > 0) {
+      const lastAlertDate = localStorage.getItem("last_low_stock_alert_date");
+      const today = new Date().toISOString().slice(0, 10);
+      if (lastAlertDate !== today) {
+        const lowItems = items.filter(i => Number(i.stock) <= Number(i.min_level));
+        if (lowItems.length > 0) {
+          sendLowStockAlerts(lowItems).then(() => {
+            localStorage.setItem("last_low_stock_alert_date", today);
+          });
+        } else {
+          localStorage.setItem("last_low_stock_alert_date", today);
+        }
+      }
+    }
+  }, [items]);
 
   const getStatus = (item) =>
     item.stock <= 0 ? "critical"
@@ -323,10 +304,20 @@ export default function Inventory() {
       await base44.entities.InventoryItem.update(editing.id, form);
       logAudit({ action: `Inventory updated: ${form.name}`, type: "inventory", details: `Stock: ${editing.stock}→${form.stock} ${form.unit}` });
       toast.success(`✅ ${form.name} updated successfully.`);
+      // Send alert if item is now low/critical
+      const updatedItem = { ...form, stock: Number(form.stock), min_level: Number(form.min_level) };
+      if (Number(form.stock) <= Number(form.min_level)) {
+        sendLowStockAlerts([updatedItem]);
+      }
     } else {
       await base44.entities.InventoryItem.create(form);
       logAudit({ action: `Inventory item added: ${form.name}`, type: "inventory", details: `Stock: ${form.stock} ${form.unit}` });
       toast.success(`✅ ${form.name} added successfully.`);
+      // Send alert if new item is already low
+      const newItem = { ...form, stock: Number(form.stock), min_level: Number(form.min_level) };
+      if (Number(form.stock) <= Number(form.min_level)) {
+        sendLowStockAlerts([newItem]);
+      }
     }
     setShowForm(false);
     invalidate("InventoryItem");
@@ -429,7 +420,6 @@ export default function Inventory() {
         </div>
       )}
 
-      {/* Add/Edit Modal */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="glass-strong rounded-2xl p-6 w-full max-w-md mx-4 space-y-3">
@@ -487,7 +477,6 @@ export default function Inventory() {
         </div>
       )}
 
-      {/* Bulk Upload Modal */}
       {showBulkUpload && (
         <InventoryBulkUploadModal
           onClose={() => setShowBulkUpload(false)}

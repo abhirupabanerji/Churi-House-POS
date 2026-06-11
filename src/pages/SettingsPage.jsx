@@ -54,7 +54,30 @@ const DEFAULT_SETTINGS = {
   tax_rate: "5", service_charge: "0", round_off: true, split_bill: true,
 };
 
-function mapFromEntity(rec) {
+const testConnection = async () => {
+  if (!settings.smtp_host || !settings.from_email) {
+    toast.error("Please fill SMTP Host and From Email first.");
+    return;
+  }
+  try {
+    await base44.integrations.Core.SendEmail({
+      to: settings.from_email,
+      subject: "Test Connection — Churi House POS",
+      body: "SMTP connection is working correctly.",
+      smtp_host: settings.smtp_host,
+      smtp_port: settings.smtp_port,
+      smtp_user: settings.smtp_user,
+      smtp_pass: settings.smtp_pass,
+      from_email: settings.from_email,
+      from_name: settings.from_name,
+    });
+    toast.success("✅ Test email sent successfully!");
+  } catch (err) {
+    toast.error("❌ Connection failed: " + (err?.message || "Unknown error"));
+  }
+};
+
+    function mapFromEntity(rec) {
   return {
     restaurant_name: rec.branch_name || DEFAULT_SETTINGS.restaurant_name,
     receipt_header: rec.receipt_header || DEFAULT_SETTINGS.receipt_header,
@@ -67,8 +90,20 @@ function mapFromEntity(rec) {
     compact_sidebar: rec.compact_sidebar || false,
     show_animations: rec.show_animations !== undefined ? rec.show_animations : true,
     enable_gst: rec.show_gst !== undefined ? rec.show_gst : true,
+    // SMTP
+    smtp_host: rec.smtp_host || "",
+    smtp_port: rec.smtp_port || "587",
+    smtp_user: rec.smtp_user || "",
+    smtp_pass: rec.smtp_pass || "",
+    from_email: rec.from_email || "",
+    from_name: rec.from_name || "Churi House",
+    // Email prefs
+    email_low_stock: rec.email_low_stock !== undefined ? rec.email_low_stock : true,
+    email_order_confirm: rec.email_order_confirm !== undefined ? rec.email_order_confirm : true,
+    email_daily_summary: rec.email_daily_summary || false,
   };
 }
+
 
 function FileUploadField({ label, accept, currentUrl, onUpload, onRemove, uploading }) {
   const inputRef = useRef();
@@ -141,20 +176,31 @@ export default function SettingsPage() {
     if (!validate()) return;
     setSaving(true);
     const entityData = {
-      branch_id: "main",
-      branch_name: settings.restaurant_name,
-      receipt_header: settings.receipt_header,
-      receipt_footer: settings.receipt_footer,
-      receipt_logo_url: settings.logo_url,
-      logo_url: settings.logo_url,
-      favicon_url: settings.favicon_url,
-      tagline: settings.tagline,
-      show_gst: settings.enable_gst,
-      theme_color: settings.theme_color,
-      dark_mode: settings.dark_mode,
-      compact_sidebar: settings.compact_sidebar,
-      show_animations: settings.show_animations,
-    };
+  branch_id: "main",
+  branch_name: settings.restaurant_name,
+  receipt_header: settings.receipt_header,
+  receipt_footer: settings.receipt_footer,
+  receipt_logo_url: settings.logo_url,
+  logo_url: settings.logo_url,
+  favicon_url: settings.favicon_url,
+  tagline: settings.tagline,
+  show_gst: settings.enable_gst,
+  theme_color: settings.theme_color,
+  dark_mode: settings.dark_mode,
+  compact_sidebar: settings.compact_sidebar,
+  show_animations: settings.show_animations,
+  // SMTP settings
+  smtp_host: settings.smtp_host,
+  smtp_port: settings.smtp_port,
+  smtp_user: settings.smtp_user,
+  smtp_pass: settings.smtp_pass,
+  from_email: settings.from_email,
+  from_name: settings.from_name,
+  // Email preferences
+  email_low_stock: settings.email_low_stock,
+  email_order_confirm: settings.email_order_confirm,
+  email_daily_summary: settings.email_daily_summary,
+};
     if (settingsId) {
       await base44.entities.BranchSettings.update(settingsId, entityData);
     } else {
@@ -307,7 +353,9 @@ export default function SettingsPage() {
                 <div className="flex items-center justify-between"><Label>Send Low Stock Alerts</Label><Switch checked={settings.email_low_stock} onCheckedChange={v => update("email_low_stock", v)} /></div>
               </div>
               <div className="flex gap-3">
-                <Button variant="outline" className="bg-white/5 border-white/10">Test Connection</Button>
+                <Button variant="outline" className="bg-white/5 border-white/10" onClick={testConnection}>
+                  Test Connection
+                </Button>
                 <SaveBtn />
               </div>
             </>

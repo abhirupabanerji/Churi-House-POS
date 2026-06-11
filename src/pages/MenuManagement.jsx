@@ -3,7 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { useEntityQuery, useInvalidate } from "@/lib/useEntityQuery";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Plus, ToggleLeft, ToggleRight, Pencil, Trash2, Settings2, Upload, Download, X, CheckCircle, AlertCircle } from "lucide-react";
+import { Search, Plus, ToggleLeft, ToggleRight, Pencil, Trash2, Settings2, Upload, Download, X, CheckCircle, AlertCircle, Check } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -449,7 +449,16 @@ export default function MenuManagement() {
                 {COLOR_PALETTE.map(c => (
                   <button key={c || "none"} onClick={() => setForm({ ...form, color: c })} title={c || "No color"}
                     className={`w-7 h-7 rounded-full border-2 transition-all ${form.color === c ? "border-white scale-110" : "border-transparent hover:border-white/50"}`}
-                    style={{ background: c || "rgba(255,255,255,0.08)" }}>
+                    style={{ background: c || "rgba(255,255,255,0.08)", 
+                      ...(form.color === c
+          ? {
+              outline: `2px solid ${c || "#ffffff"}`,
+              outlineOffset: "2px",
+            }
+          : {}),
+      }}
+    >
+    
                     {!c && <span className="text-[10px] text-muted-foreground">✕</span>}
                   </button>
                 ))}
