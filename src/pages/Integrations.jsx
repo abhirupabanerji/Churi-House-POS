@@ -1,15 +1,17 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plug, ChevronDown, ChevronUp, Check } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 
+const STORAGE_KEY = "churi_integrations_state";
+
 const INTEGRATIONS = [
   {
     name: "Swiggy", category: "Delivery", desc: "Connect your Swiggy restaurant account for live order sync.",
     config: [
-      { key: "api_key", label: "API Key", placeholder: "swgy_live_xxxxxxxxxxxx", type: "password" },
+      { key: "access_token", label: "Access Token", placeholder: "swgy_live_xxxxxxxxxxxx", type: "password" },
       { key: "store_id", label: "Store ID", placeholder: "SWG_12345", type: "text" },
       { key: "restaurant_id", label: "Restaurant ID", placeholder: "res_98765", type: "text" },
       { key: "auto_accept", label: "Auto-accept Orders", type: "toggle" },
@@ -19,8 +21,8 @@ const INTEGRATIONS = [
   {
     name: "Zomato", category: "Delivery", desc: "Sync Zomato orders and manage your restaurant profile.",
     config: [
-      { key: "api_key", label: "API Key", placeholder: "zmt_live_xxxxxxxxxxxx", type: "password" },
-      { key: "res_id", label: "Restaurant ID", placeholder: "ZMT_54321", type: "text" },
+      { key: "access_token", label: "Access Token", placeholder: "zmt_live_xxxxxxxxxxxx", type: "password" },
+      { key: "restaurant_id", label: "Restaurant ID", placeholder: "ZMT_54321", type: "text" },
       { key: "city_id", label: "City ID", placeholder: "e.g. 5 for Hyderabad", type: "text" },
       { key: "auto_accept", label: "Auto-accept Orders", type: "toggle" },
       { key: "menu_sync", label: "Auto Sync Menu Changes", type: "toggle" },
@@ -50,6 +52,7 @@ const INTEGRATIONS = [
     name: "WhatsApp Business", category: "Notifications", desc: "Send order confirmations and alerts via WhatsApp.",
     config: [
       { key: "phone_number_id", label: "Phone Number ID", placeholder: "1234567890", type: "text" },
+      { key: "business_account_id", label: "Business Account ID", placeholder: "business_account_id", type: "text" },
       { key: "access_token", label: "Access Token", placeholder: "EAAxxxxxx...", type: "password" },
       { key: "order_notify", label: "Order Confirmation Messages", type: "toggle" },
       { key: "low_stock", label: "Low Stock Alerts", type: "toggle" },
@@ -59,6 +62,7 @@ const INTEGRATIONS = [
     name: "SMS Gateway", category: "Notifications", desc: "Send OTP and order alert SMS to customers.",
     config: [
       { key: "api_key", label: "API Key", placeholder: "sms_key_xxx", type: "password" },
+      { key: "api_secret", label: "API Secret", placeholder: "sms_secret_xxx", type: "password" },
       { key: "sender_id", label: "Sender ID", placeholder: "CHURIH", type: "text" },
       { key: "template_id", label: "Template ID", placeholder: "template_xxxx", type: "text" },
     ],
@@ -88,22 +92,44 @@ const categoryColors = {
   Hardware: "bg-purple-500/10 text-purple-400",
 };
 
+const integrationNames = INTEGRATIONS.map((item) => item.name);
+
+const DEFAULT_ENABLED = { Swiggy: true, Zomato: true, Razorpay: true, Paytm: false, "WhatsApp Business": false, "SMS Gateway": true, "Thermal Printer": true, "QR Ordering": true };
+
+const loadStoredState = () => {
+  try {
+    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+    return {
+      enabled: stored.enabled || DEFAULT_ENABLED,
+      expanded: stored.expanded || {},
+      configs: stored.configs || {},
+    };
+  } catch {
+    return { enabled: DEFAULT_ENABLED, expanded: {}, configs: {} };
+  }
+};
+
 export default function Integrations() {
-  const [enabled, setEnabled] = useState({ Swiggy: true, Zomato: true, Razorpay: true, Paytm: false, "WhatsApp Business": false, "SMS Gateway": true, "Thermal Printer": true, "QR Ordering": true });
-  const [expanded, setExpanded] = useState({});
-  const [configs, setConfigs] = useState({});
+  const initialState = loadStoredState();
+  const [enabled, setEnabled] = useState(initialState.enabled);
+  const [expanded, setExpanded] = useState(initialState.expanded);
+  const [configs, setConfigs] = useState(initialState.configs);
   const [saved, setSaved] = useState({});
   const [search, setSearch] = useState("");
 
-  const toggle = (name) => setEnabled(e => ({ ...e, [name]: !e[name] }));
-  const toggleExpand = (name) => setExpanded(e => ({ ...e, [name]: !e[name] }));
-  const setConfig = (name, key, value) => setConfigs(c => ({ ...c, [name]: { ...(c[name] || {}), [key]: value } }));
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ enabled, expanded, configs }));
+  }, [enabled, expanded, configs]);
+
+  const toggle = (name, value) => setEnabled((e) => ({ ...e, [name]: value }));
+  const toggleExpand = (name) => setExpanded((e) => ({ ...e, [name]: !e[name] }));
+  const setConfig = (name, key, value) => setConfigs((c) => ({ ...c, [name]: { ...(c[name] || {}), [key]: value } }));
   const saveConfig = (name) => {
     setSaved(s => ({ ...s, [name]: true }));
     setTimeout(() => setSaved(s => ({ ...s, [name]: false })), 2000);
   };
 
-  const filtered = INTEGRATIONS.filter(i => i.name.toLowerCase().includes(search.toLowerCase()) || i.category.toLowerCase().includes(search.toLowerCase()));
+  const filtered = INTEGRATIONS.filter((i) => i.name.toLowerCase().includes(search.toLowerCase()) || i.category.toLowerCase().includes(search.toLowerCase()));
 
   return (
     <div className="p-6 space-y-5">
@@ -138,7 +164,7 @@ export default function Integrations() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-semibold text-foreground">{item.name}</p>
-                    <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded ${categoryColors[item.category]}`}>{item.category}</span>
+                    <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded ${categoryColors[item.category] || "bg-gray-500/10 text-gray-400"}`}>{item.category}</span>
                   </div>
                   <p className="text-xs text-muted-foreground">{item.desc}</p>
                 </div>
@@ -148,7 +174,7 @@ export default function Integrations() {
                       Configure {isOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                     </button>
                   )}
-                  <Switch checked={isOn} onCheckedChange={() => toggle(item.name)} />
+                  <Switch checked={isOn} onCheckedChange={(checked) => toggle(item.name, checked)} />
                 </div>
               </div>
 
@@ -161,13 +187,13 @@ export default function Integrations() {
                         {field.type === "toggle" ? (
                           <>
                             <Label className="text-xs">{field.label}</Label>
-                            <Switch checked={!!cfg[field.key]} onCheckedChange={v => setConfig(item.name, field.key, v)} />
+                            <Switch checked={!!cfg[field.key]} onCheckedChange={(v) => setConfig(item.name, field.key, v)} />
                           </>
                         ) : field.type === "select" ? (
                           <div className="space-y-1.5 col-span-1">
                             <Label className="text-xs">{field.label}</Label>
-                            <select value={cfg[field.key] || field.options[0]} onChange={e => setConfig(item.name, field.key, e.target.value)} className="w-full h-9 rounded-md bg-secondary border border-white/10 text-sm px-3 text-foreground">
-                              {field.options.map(o => <option key={o} value={o}>{o}</option>)}
+                            <select value={cfg[field.key] || field.options?.[0] || ""} onChange={(e) => setConfig(item.name, field.key, e.target.value)} className="w-full h-9 rounded-md bg-secondary border border-white/10 text-sm px-3 text-foreground">
+                              {(field.options || []).map((o) => <option key={o} value={o}>{o}</option>)}
                             </select>
                           </div>
                         ) : (
@@ -177,7 +203,7 @@ export default function Integrations() {
                               type={field.type}
                               placeholder={field.placeholder}
                               value={cfg[field.key] || ""}
-                              onChange={e => setConfig(item.name, field.key, e.target.value)}
+                              onChange={(e) => setConfig(item.name, field.key, e.target.value)}
                               className="h-9 bg-white/5 border-white/10 text-sm"
                             />
                           </>

@@ -1,7 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { getSession, clearSession } from "@/lib/restaurantAuth";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   LayoutDashboard, ShoppingCart, ChefHat, ClipboardList,
   UtensilsCrossed, Gift, Tag, TableIcon, CalendarCheck,
@@ -78,6 +78,14 @@ const ROLE_ACCESS = {
 export default function Sidebar() {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState({});
+  const [brandName, setBrandName] = useState(() => {
+    try {
+      const savedSettings = JSON.parse(localStorage.getItem("churi_settings") || "{}");
+      return savedSettings.restaurant_name || "Churi House";
+    } catch {
+      return "Churi House";
+    }
+  });
   const session = getSession();
 
   const toggle = (section) => setCollapsed(prev => ({ ...prev, [section]: !prev[section] }));
@@ -85,6 +93,26 @@ export default function Sidebar() {
   const isFullAccess = !session || session.role === "super_admin" || session.role === "admin";
   const allowedPaths = !isFullAccess ? ROLE_ACCESS[session?.role] : null;
   const filterItem = (item) => isFullAccess || allowedPaths?.has(item.path) || false;
+
+  useEffect(() => {
+    const syncBrandName = () => {
+      try {
+        const savedSettings = JSON.parse(localStorage.getItem("churi_settings") || "{}");
+        setBrandName(savedSettings.restaurant_name || "Churi House");
+      } catch {
+        setBrandName("Churi House");
+      }
+    };
+
+    syncBrandName();
+    window.addEventListener("branding-updated", syncBrandName);
+    window.addEventListener("storage", syncBrandName);
+
+    return () => {
+      window.removeEventListener("branding-updated", syncBrandName);
+      window.removeEventListener("storage", syncBrandName);
+    };
+  }, []);
 
   const brandLogo = localStorage.getItem("branding_logo");
 
@@ -96,8 +124,8 @@ export default function Sidebar() {
           ? <img src={brandLogo} alt="Logo" className="w-9 h-9 rounded-xl object-cover shrink-0" />
           : <div className="w-9 h-9 rounded-xl bg-primary/20 border border-primary/30 flex items-center justify-center glow-orange shrink-0"><span className="text-xs font-bold text-primary">CH</span></div>
         }
-        <div>
-          <h1 className="text-sm font-bold text-foreground leading-tight">Churi House</h1>
+        <div className="min-w-0">
+          <h1 className="text-sm font-bold text-foreground leading-tight truncate">{brandName}</h1>
           <p className="text-[9px] text-primary uppercase tracking-wider font-medium">POS System</p>
         </div>
       </div>
