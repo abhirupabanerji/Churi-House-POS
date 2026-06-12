@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { Search, Package, AlertTriangle, Plus, Pencil, Trash2, X, Upload, Download, CheckCircle, AlertCircle } from "lucide-react";
 import { logAudit } from "@/lib/auditLog";
@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { fieldError, nonNegativeNumber, positiveNumber, required } from "@/lib/formValidation";
+import { sendLowStockAlerts } from "@/lib/lowStockAlert";
+import { cleanupDuplicateInventoryItems, findDuplicateInventoryItem } from "@/lib/duplicateData";
 import * as XLSX from "xlsx";
 
 const statusStyle = {
@@ -107,7 +109,16 @@ function InventoryBulkUploadModal({ onClose, onImported }) {
     try {
       for (const row of validRows) {
         const { _row, _errors, ...data } = row;
+        const existing = await findDuplicateInventoryItem(data.name);
+        if (existing) {
+          toast.error(`❌ Skipped duplicate inventory item: ${data.name}`);
+          continue;
+        }
         await base44.entities.InventoryItem.create(data);
+        const status = data.stock <= 0 ? "critical" : data.stock < data.min_level ? (data.stock < data.min_level / 2 ? "critical" : "low") : "ok";
+        if (status === "critical") {
+          await sendLowStockAlerts([{ ...data, name: data.name, stock: Number(data.stock), min_level: Number(data.min_level), unit: data.unit }]);
+        }
       }
       logAudit({ action: `Bulk import: ${validRows.length} inventory items added`, type: "inventory" });
       toast.success(`✅ ${validRows.length} items imported successfully.`);
@@ -271,7 +282,12 @@ export default function Inventory() {
 
   const { data: items = [], isLoading: loading } = useEntityQuery("InventoryItem", { sort: "name", limit: 100 });
   const invalidate = useInvalidate();
-  const load = () => invalidate("InventoryItem");
+  const load = async () => {
+    await cleanupDuplicateInventoryItems();
+    invalidate("InventoryItem");
+  };
+
+  useEffect(() => { load(); }, []);
   
   const getStatus = (item) =>
     item.stock <= 0 ? "critical"
@@ -319,15 +335,37 @@ export default function Inventory() {
 
   const save = async () => {
     if (!validate()) return;
-    if (editing) {
-      await base44.entities.InventoryItem.update(editing.id, form);
-      logAudit({ action: `Inventory updated: ${form.name}`, type: "inventory", details: `Stock: ${editing.stock}→${form.stock} ${form.unit}` });
-      toast.success(`✅ ${form.name} updated successfully.`);
-    } else {
-      await base44.entities.InventoryItem.create(form);
-      logAudit({ action: `Inventory item added: ${form.name}`, type: "inventory", details: `Stock: ${form.stock} ${form.unit}` });
-      toast.success(`✅ ${form.name} added successfully.`);
+
+    const payload = {
+      ...form,
+      stock: Number(form.stock),
+      min_level: Number(form.min_level),
+      cost_per_unit: Number(form.cost_per_unit),
+    };
+
+    const existing = await findDuplicateInventoryItem(payload.name, editing?.id);
+    if (existing) {
+      toast.error(`❌ An inventory item named "${payload.name}" already exists.`);
+      return;
     }
+
+    const previousStatus = editing ? getStatus(editing) : "ok";
+    const nextStatus = getStatus(payload);
+
+    if (editing) {
+      await base44.entities.InventoryItem.update(editing.id, payload);
+      logAudit({ action: `Inventory updated: ${payload.name}`, type: "inventory", details: `Stock: ${editing.stock}→${payload.stock} ${payload.unit}` });
+      toast.success(`✅ ${payload.name} updated successfully.`);
+    } else {
+      await base44.entities.InventoryItem.create(payload);
+      logAudit({ action: `Inventory item added: ${payload.name}`, type: "inventory", details: `Stock: ${payload.stock} ${payload.unit}` });
+      toast.success(`✅ ${payload.name} added successfully.`);
+    }
+
+    if (nextStatus === "critical" && previousStatus !== "critical") {
+      await sendLowStockAlerts([{ ...payload, id: editing?.id, name: payload.name, stock: payload.stock, min_level: payload.min_level, unit: payload.unit }]);
+    }
+
     setShowForm(false);
     invalidate("InventoryItem");
   };
@@ -397,13 +435,6 @@ export default function Inventory() {
               {filtered.length === 0 ? (
                 <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">No items yet. Add your first item.</td></tr>
               ) : filtered.map(item => {
-                console.log(
-  item.name,
-  item.stock,
-  typeof item.stock,
-  item.min_level,
-  typeof item.min_level
-);
                 const s = getStatus(item);
                 return (
                   <tr key={item.id} className="border-b border-white/5 hover:bg-white/5">

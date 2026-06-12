@@ -8,7 +8,7 @@ import { logAudit } from "@/lib/auditLog";
 import { toast } from "sonner";
 import { fieldError } from "@/lib/formValidation";
 
-const ROLES = ["super_admin", "admin", "manager", "cashier", "staff"];
+const ROLES = ["Super admin", "Admin", "Manager", "Cashier", "Staff"];
 
 const roleColor = {
   super_admin: "bg-red-500/10 text-red-400",

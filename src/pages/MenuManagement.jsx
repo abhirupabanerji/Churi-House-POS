@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useEntityQuery, useInvalidate } from "@/lib/useEntityQuery";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import EditCategoriesModal from "@/components/menu/EditCategoriesModal";
 import { softDelete } from "@/lib/softDelete";
 import { logAudit } from "@/lib/auditLog";
 import { toast } from "sonner";
+import { cleanupDuplicateMenuItems, findDuplicateMenuItem } from "@/lib/duplicateData";
 import * as XLSX from "xlsx";
 
 const DEFAULT_CATEGORIES = ["Starters", "Main Course", "Biryani", "Breads", "Desserts", "Beverages"];
@@ -112,6 +113,11 @@ function MenuBulkUploadModal({ onClose, onImported }) {
     try {
       for (const row of validRows) {
         const { _row, _errors, ...data } = row;
+        const existing = await findDuplicateMenuItem(data.name);
+        if (existing) {
+          toast.error(`❌ Skipped duplicate menu item: ${data.name}`);
+          continue;
+        }
         await base44.entities.MenuItem.create(data);
       }
       logAudit({ action: `Bulk import: ${validRows.length} menu items added`, type: "menu" });
@@ -279,6 +285,12 @@ export default function MenuManagement() {
 
   const { data: items = [], isLoading: loading } = useEntityQuery("MenuItem", { sort: "name", limit: 200 });
   const invalidate = useInvalidate();
+  const loadItems = async () => {
+    await cleanupDuplicateMenuItems();
+    invalidate("MenuItem");
+  };
+
+  useEffect(() => { loadItems(); }, []);
 
   const filtered = items.filter((i) => {
     if (catFilter !== "All" && i.category !== catFilter) return false;
@@ -309,6 +321,11 @@ export default function MenuManagement() {
   const save = async () => {
     if (!validate()) return;
     const data = { ...form, price: Number(form.price), preparation_time: Number(form.preparation_time) || 0 };
+    const existing = await findDuplicateMenuItem(data.name, editId);
+    if (existing) {
+      toast.error(`❌ A menu item named "${data.name}" already exists.`);
+      return;
+    }
     if (editId) {
       const old = items.find(i => i.id === editId);
       await base44.entities.MenuItem.update(editId, data);
@@ -319,13 +336,13 @@ export default function MenuManagement() {
       logAudit({ action: `Menu item added: ${data.name}`, type: "menu", details: `Category: ${data.category}, Price: ₹${data.price}` });
       toast.success(`✅ ${data.name} added successfully.`);
     }
-    invalidate("MenuItem");
+    await loadItems();
     setDialogOpen(false);
   };
 
   const toggleAvailability = async (item) => {
     await base44.entities.MenuItem.update(item.id, { is_available: !item.is_available });
-    invalidate("MenuItem");
+    await loadItems();
     logAudit({ action: `Menu item ${!item.is_available ? "marked available" : "marked unavailable"}: ${item.name}`, type: "menu" });
     toast.success(`✅ ${item.name} marked ${!item.is_available ? "available" : "unavailable"}.`);
   };
@@ -334,7 +351,7 @@ export default function MenuManagement() {
     if (!confirm(`Delete "${item.name}"?`)) return;
     await softDelete({ module: "MenuItem", id: item.id, name: item.name, data: item });
     await base44.entities.MenuItem.delete(item.id);
-    invalidate("MenuItem");
+    await loadItems();
     logAudit({ action: `Menu item deleted: ${item.name}`, type: "menu", details: `Category: ${item.category}, Price: ₹${item.price}` });
     toast.success(`🗑️ ${item.name} moved to Recycle Bin.`);
   };

@@ -39,7 +39,11 @@ export default function ReceiptPreview({ settings, order = SAMPLE_ORDER, onClose
   const orderTypeLabel = ORDER_TYPE_LABELS[order.type] || order.type;
   const orderTypeColor = ORDER_TYPE_COLORS[order.type] || "bg-gray-100 text-gray-700";
 
-  const header      = settings?.receipt_header || "Churi House";
+  const restaurantName = settings?.restaurant_name || settings?.restaurantName || settings?.store_name || "";
+  const branchName = settings?.branch_label || settings?.branchLabel || settings?.branch_name_display || settings?.branch_name || "";
+  const displayHeader = [restaurantName, branchName].filter(Boolean).join(" — ");
+  const header = displayHeader || settings?.receipt_header || "Churi House";
+  const subHeader = settings?.receipt_header && settings.receipt_header !== displayHeader && settings.receipt_header !== restaurantName ? settings.receipt_header : "";
   const tagline     = settings?.tagline || "";
   const address     = settings?.address || "";
   const phone       = settings?.phone || "";
@@ -49,6 +53,7 @@ export default function ReceiptPreview({ settings, order = SAMPLE_ORDER, onClose
   const footer      = settings?.receipt_footer || "Thank you!";
   const note        = settings?.receipt_note || "";
   const logoUrl     = settings?.receipt_logo_url || "";
+  const qrUrl       = settings?.receipt_qr_url || "";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
@@ -73,6 +78,7 @@ export default function ReceiptPreview({ settings, order = SAMPLE_ORDER, onClose
           {/* Header */}
           <div className="text-center border-b border-dashed border-gray-300 pb-2">
             <p className="font-bold text-sm">{header}</p>
+            {subHeader && <p className="text-gray-500 text-[10px]">{subHeader}</p>}
             {tagline && <p className="text-gray-400 text-[10px] italic">{tagline}</p>}
             {settings?.show_branch_address !== false && address && (
               <p className="text-gray-500 text-[10px]">{address}</p>
@@ -112,10 +118,11 @@ export default function ReceiptPreview({ settings, order = SAMPLE_ORDER, onClose
           )}
 
           {/* Customer Info */}
-          {(order.customer_name || order.customer_phone) && (
-            <div className="text-[10px] text-gray-500 border-b border-dashed border-gray-200 pb-1">
+          {(order.customer_name || order.customer_phone || order.table_number) && (
+            <div className="text-[10px] text-gray-500 border-b border-dashed border-gray-200 pb-1 space-y-0.5">
               {order.customer_name && <div>Customer: <span className="text-black font-medium">{order.customer_name}</span></div>}
               {order.customer_phone && <div>Phone: <span className="text-black">{order.customer_phone}</span></div>}
+              {order.table_number && <div>Table: <span className="text-black">{order.table_number}</span></div>}
             </div>
           )}
 
@@ -154,13 +161,17 @@ export default function ReceiptPreview({ settings, order = SAMPLE_ORDER, onClose
             </div>
           </div>
 
-          {/* UPI QR Placeholder */}
-          {settings?.show_upi_qr && settings?.upi_id && (
+          {/* QR Code */}
+          {settings?.show_upi_qr !== false && (
             <div className="text-center border-t border-dashed border-gray-300 pt-2">
-              <p className="text-[10px] text-gray-500 mb-1">Pay via UPI</p>
-              <div className="w-16 h-16 mx-auto bg-gray-100 border border-gray-300 rounded flex items-center justify-center">
-                <span className="text-[8px] text-gray-400 text-center">QR<br/>{settings.upi_id}</span>
-              </div>
+              <p className="text-[10px] text-gray-500 mb-1">Scan to Pay</p>
+              {qrUrl ? (
+                <img src={qrUrl} alt="Receipt QR" className="w-16 h-16 mx-auto object-contain rounded border border-gray-300 bg-white p-1" />
+              ) : settings?.upi_id ? (
+                <div className="w-16 h-16 mx-auto bg-gray-100 border border-gray-300 rounded flex items-center justify-center">
+                  <span className="text-[8px] text-gray-400 text-center">QR<br/>{settings.upi_id}</span>
+                </div>
+              ) : null}
             </div>
           )}
 

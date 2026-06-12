@@ -39,6 +39,7 @@ export default function Dashboard() {
   const [allOrders, setAllOrders] = useState([]);
   const [branches, setBranches] = useState([]);
   const [inventory, setInventory] = useState([]);
+  const [tables, setTables] = useState([]);
   const [lastRefresh, setLastRefresh] = useState(Date.now());
   const { branch, isAllBranches } = getCurrentUserBranch();
 
@@ -46,6 +47,7 @@ export default function Dashboard() {
     base44.entities.Branch.list().then(d => setBranches(d || [])).catch(() => {});
     base44.entities.Order.list("-created_date", 500).then(d => setAllOrders(d || [])).catch(() => {});
     base44.entities.InventoryItem.list().then(d => setInventory(d || [])).catch(() => {});
+    base44.entities.Table.list("num", 200).then(d => setTables(d || [])).catch(() => {});
     setLastRefresh(Date.now());
   }, []);
 
@@ -67,6 +69,19 @@ export default function Dashboard() {
         setAllOrders(prev => prev.map(o => o.id === event.data?.id ? event.data : o));
       } else if (event.type === "delete") {
         setAllOrders(prev => prev.filter(o => o.id !== event.data?.id));
+      }
+    });
+    return unsub;
+  }, []);
+
+  useEffect(() => {
+    const unsub = base44.entities.Table.subscribe((event) => {
+      if (event.type === "create") {
+        setTables(prev => [...prev, event.data].sort((a, b) => (a.num || 0) - (b.num || 0)));
+      } else if (event.type === "update") {
+        setTables(prev => prev.map(t => t.id === event.data?.id ? event.data : t));
+      } else if (event.type === "delete") {
+        setTables(prev => prev.filter(t => t.id !== event.data?.id));
       }
     });
     return unsub;
@@ -187,12 +202,9 @@ export default function Dashboard() {
     return acc;
   }, {});
 
-  const availableTables = (() => {
-    try {
-      const t = JSON.parse(localStorage.getItem("churi_tables_state") || "[]");
-      return t.filter(t => t.status === "available").length;
-    } catch { return 0; }
-  })();
+  const availableTables = useMemo(() => {
+    return tables.filter((table) => String(table.status || "").toLowerCase() === "available").length;
+  }, [tables]);
 
   const ALERTS = [
     ...lowStockItems.slice(0, 2).map(i => ({

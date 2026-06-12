@@ -9,7 +9,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 const ROLES = ["admin","branch_manager","cashier","kitchen_staff","inventory_manager","accountant","delivery_rider","user"];
-const BRANCHES = ["Main Branch","Jubilee Hills","Banjara Hills","Secunderabad"];
 const roleColor = {
   admin: "bg-primary/10 text-primary",
   branch_manager: "bg-purple-500/10 text-purple-400",
@@ -25,6 +24,7 @@ const emptyForm = { full_name: "", email: "", phone: "", role: "cashier", branch
 
 export default function Staff() {
   const [users, setUsers] = useState([]);
+  const [branches, setBranches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
@@ -36,12 +36,27 @@ export default function Staff() {
   const [editErrors, setEditErrors] = useState({});
   const [saving, setSaving] = useState(false);
 
-  const load = () =>
-    base44.entities.User.list("full_name", 100)
-      .then(d => { setUsers(d); setLoading(false); })
-      .catch(() => setLoading(false));
+  const load = async () => {
+    setLoading(true);
+    try {
+      const [userData, branchData] = await Promise.all([
+        base44.entities.User.list("full_name", 100),
+        base44.entities.Branch.list("name", 100),
+      ]);
+
+      setUsers(userData || []);
+      setBranches((branchData || []).map(b => b.name).filter(Boolean));
+    } catch {
+      setUsers([]);
+      setBranches([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => { load(); }, []);
+
+  const branchOptions = ["All Branches", ...branches];
 
   // ── Validation ────────────────────────────────────────────────────────────
 
@@ -244,8 +259,9 @@ export default function Staff() {
                 onChange={e => setAddForm(f => ({ ...f, branch_id: e.target.value }))}
                 className="w-full h-9 rounded-md bg-secondary border border-white/10 text-sm px-3 text-foreground"
               >
-                <option value="">All Branches</option>
-                {BRANCHES.map(b => <option key={b} value={b}>{b}</option>)}
+                {branchOptions.length === 1
+                  ? <option value="">All Branches (no branches added)</option>
+                  : branchOptions.map(b => <option key={b} value={b}>{b}</option>)}
               </select>
             </div>
             <div className="flex gap-3 pt-1">
@@ -323,8 +339,9 @@ export default function Staff() {
           onChange={e => setEditForm(f => ({ ...f, branch_id: e.target.value }))}
           className="w-full h-9 rounded-md bg-secondary border border-white/10 text-sm px-3 text-foreground"
         >
-          <option value="">All Branches</option>
-          {BRANCHES.map(b => <option key={b} value={b}>{b}</option>)}
+          {branchOptions.length === 1
+            ? <option value="">All Branches (no branches added)</option>
+            : branchOptions.map(b => <option key={b} value={b}>{b}</option>)}
         </select>
       </div>
 

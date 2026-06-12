@@ -6,7 +6,7 @@ import { Search, Plus, Minus, Trash2, ShoppingCart, CreditCard, Banknote, Smartp
 import { Link } from "react-router-dom";
 import ReceiptPreview from "@/components/ReceiptPreview";
 import { logAudit } from "@/lib/auditLog";
-import { fieldError } from "@/lib/formValidation";
+import { fieldError, phoneNumber } from "@/lib/formValidation";
 
 const LS_CAT_KEY = "menu_custom_categories";
 const DEFAULT_CATEGORIES = ["Starters", "Main Course", "Biryani", "Breads", "Desserts", "Beverages"];
@@ -181,9 +181,16 @@ export default function POS() {
         r.branch_name?.toLowerCase() === canonical.toLowerCase()
       ) || settingsData.find(r =>
         r.branch_name?.toLowerCase() === "main branch"
-      ) || settingsData[0];
+      ) || settingsData.find(r => r.branch_id === "main") || settingsData[0];
 
-      if (match) setBranchSettings({ ...match, branch_name: canonical });
+      if (match) {
+        setBranchSettings({
+          ...match,
+          restaurant_name: match.restaurant_name || match.branch_name || "Churi House",
+          branch_name: canonical,
+          branch_label: match.branch_label || canonical,
+        });
+      }
     }).catch(() => {});
   }, []);
 
@@ -215,7 +222,18 @@ export default function POS() {
   const tax = Math.round(subtotal * 0.05);
   const total = subtotal + tax;
 
+  const validateOrder = () => {
+    const next = {};
+    if (cart.length === 0) next.cart = "Add at least one item";
+    if (!customerName.trim()) next.customerName = "Customer name is required";
+    if (orderType === "dine_in" && !tableNum.trim()) next.tableNum = "Table number is required";
+    phoneNumber(next, "customerPhone", customerPhoneDigits);
+    setOrderErrors(next);
+    return Object.keys(next).length === 0;
+  };
+
   const placeOrder = async (paymentMethod) => {
+    if (!validateOrder()) return;
     const currentUser = getCurrentUser();
     const orderNum = `CH-${Date.now().toString(36).toUpperCase()}`;
     const order = {
@@ -232,6 +250,19 @@ export default function POS() {
       billed_by: currentUser.full_name || currentUser.username || currentUser.email || "Unknown",
     };
     await base44.entities.Order.create(order);
+
+    if (orderType === "dine_in" && tableNum?.trim()) {
+      try {
+        const tables = await base44.entities.Table.list("num", 200);
+        const tableMatch = tables.find(t => String(t.num) === String(tableNum.trim()));
+        if (tableMatch?.id) {
+          await base44.entities.Table.update(tableMatch.id, { status: "occupied" });
+        }
+      } catch (err) {
+        console.error("Failed to update table status from POS:", err);
+      }
+    }
+
     logAudit({ action: `Order placed: ${orderNum}`, type: "order", details: `${paymentMethod} | ₹${total} | ${orderType}` });
     if (printOnSave) { setLastOrder(order); setShowReceipt(true); }
     setCart([]);

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-const EXISTING = ["Hyderabad - Main Branch", "Jubilee Hills", "Banjara Hills", "Secunderabad"];
+const EXISTING = ["Main Branch", "Jalandhar Branch"];
 
 export default function FranchiseExpansionAI() {
   const [city, setCity] = useState("");

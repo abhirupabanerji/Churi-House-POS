@@ -7,6 +7,12 @@ const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov
 const COLORS = ["#ea580c", "#f59e0b", "#10b981", "#3b82f6", "#8b5cf6", "#ec4899"];
 const tt = { background: "rgba(20,20,20,0.95)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, color: "#fff", fontSize: 12 };
 
+const normalizeBranchName = (value) => String(value || "").trim().toLowerCase();
+const getBranchName = (record) => {
+  const candidate = record?.branch_name || record?.branch || "";
+  return String(candidate || "").trim();
+};
+
 export default function BranchComparison() {
   const [orders, setOrders] = useState([]);
   const [allBranches, setAllBranches] = useState([]);
@@ -19,16 +25,31 @@ export default function BranchComparison() {
       base44.entities.Order.list("-created_date", 2000),
       base44.entities.Branch.list("name", 100),
     ]).then(([orderData, branchData]) => {
-      setOrders(orderData || []);
-      // Use branch names from Branch entity; fall back to names found in orders
-      // Always use Branch entity as source of truth
-      const fromEntity = (branchData || []).map(b => b.name).filter(Boolean);
-      // Supplement with any branch names on orders not in entity yet
-      const fromOrders = [...new Set(
-        (orderData || []).map(o => o.branch_name || o.branch).filter(b => b && b !== "All Branches")
-      )];
-      const merged = [...new Set([...fromEntity, ...fromOrders])];
-      setAllBranches(merged.length > 0 ? merged : ["Main Branch"]);
+      const normalizedOrders = (orderData || []).map((order) => ({ ...order, __branchName: getBranchName(order) }));
+      setOrders(normalizedOrders);
+
+      const fromEntity = (branchData || [])
+  .map((b) => String(b?.name || "").trim())
+  .filter(Boolean);
+
+const fromOrders = [
+  ...new Set(
+    normalizedOrders
+      .map((o) => getBranchName(o))
+      .filter((b) => b && b !== "All Branches")
+  ),
+];
+
+const displayByKey = new Map();
+[...fromOrders, ...fromEntity].forEach((name) => {
+  const key = normalizeBranchName(name);
+  // Entity names win (processed last), so they override order-sourced names
+  displayByKey.set(key, name);
+});
+
+const merged = [...displayByKey.values()].filter(Boolean);
+setAllBranches(merged.length > 0 ? merged : ["Main Branch"]);
+
       setLoading(false);
     }).catch(() => setLoading(false));
   }, []);
@@ -50,6 +71,7 @@ export default function BranchComparison() {
   };
 
   const activeBranches = selectedBranches.includes("All") ? allBranches : selectedBranches;
+  const activeBranchKeys = new Set(activeBranches.map((branch) => normalizeBranchName(branch)));
 
   // Filter orders by selected months
   const filteredOrders = useMemo(() => {
@@ -67,9 +89,9 @@ export default function BranchComparison() {
       const obj = { month };
       activeBranches.forEach(branch => {
         const branchOrders = filteredOrders.filter(o => {
-          const b = (o.branch_name || o.branch || "").toLowerCase();
+          const b = normalizeBranchName(getBranchName(o));
           const m = MONTHS[new Date(o.created_date).getMonth()];
-          return b === branch.toLowerCase() && m === month;
+          return b === normalizeBranchName(branch) && m === month;
         });
         obj[branch] = branchOrders.reduce((s, o) => s + (Number(o.total) || 0), 0);
       });
@@ -84,9 +106,9 @@ export default function BranchComparison() {
       const obj = { month };
       activeBranches.forEach(branch => {
         obj[branch] = filteredOrders.filter(o => {
-          const b = (o.branch_name || o.branch || "").toLowerCase();
+          const b = normalizeBranchName(getBranchName(o));
           const m = MONTHS[new Date(o.created_date).getMonth()];
-          return b === branch.toLowerCase() && m === month;
+          return b === normalizeBranchName(branch) && m === month;
         }).length;
       });
       return obj;
@@ -95,7 +117,7 @@ export default function BranchComparison() {
 
   // Summary stats per branch
   const stats = useMemo(() => activeBranches.map((branch, i) => {
-    const branchOrders = filteredOrders.filter(o => (o.branch_name || o.branch || "").toLowerCase() === branch.toLowerCase());
+    const branchOrders = filteredOrders.filter(o => normalizeBranchName(getBranchName(o)) === normalizeBranchName(branch));
     const totalRev = branchOrders.reduce((s, o) => s + (Number(o.total) || 0), 0);
     const totalOrds = branchOrders.length;
     return {
@@ -112,7 +134,7 @@ export default function BranchComparison() {
     if (!activeBranches.length) return [];
     const metrics = ["Revenue", "Orders", "Avg Ticket"];
     const raw = activeBranches.map(branch => {
-      const branchOrds = filteredOrders.filter(o => (o.branch_name || o.branch || "").toLowerCase() === branch.toLowerCase());
+      const branchOrds = filteredOrders.filter(o => normalizeBranchName(getBranchName(o)) === normalizeBranchName(branch));
       const rev = branchOrds.reduce((s, o) => s + (Number(o.total) || 0), 0);
       const cnt = branchOrds.length;
       return { branch, rev, cnt, avg: cnt ? rev / cnt : 0 };

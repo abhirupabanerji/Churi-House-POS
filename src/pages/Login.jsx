@@ -1,6 +1,4 @@
 import { useState, useRef, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { User, Lock, Loader2, Delete } from "lucide-react";
 import { loginUser, logAudit } from "@/lib/restaurantAuth";
 import * as THREE from "three";
@@ -141,13 +139,22 @@ export default function Login() {
   const [pinEntry, setPinEntry] = useState("");
   const [pinError, setPinError] = useState("");
 
+  // ── Read branding from localStorage ──────────────────────────────────────
+  const logoUrl = localStorage.getItem("branding_logo") || "";
+  const savedSettings = (() => {
+    try { return JSON.parse(localStorage.getItem("churi_settings") || "{}"); }
+    catch { return {}; }
+  })();
+  const restaurantName = savedSettings.restaurant_name || "Churi House";
+  const tagline = savedSettings.tagline || "Restaurant & Franchise Management";
+
   const handleCredentialsSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setLoading(true);
     let user = null;
     try {
-      user = await loginUser(username, password, "Churi House");
+      user = await loginUser(username, password, restaurantName);
     } catch (err) {
       setError(err.message);
       setLoading(false);
@@ -195,16 +202,41 @@ export default function Login() {
       </div>
 
       <div style={{ position: "relative", zIndex: 10, width: "100%", maxWidth: "28rem", padding: "0 1rem" }}>
-        {/* Branding */}
+
+        {/* ── Branding ── */}
         <div style={{ textAlign: "center", marginBottom: "2rem" }}>
-          <div style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: "4rem", height: "4rem", borderRadius: "1rem", background: "rgba(234,88,12,0.2)", border: "1px solid rgba(234,88,12,0.3)", marginBottom: "1rem", boxShadow: "0 0 20px rgba(234,88,12,0.3)" }}>
-            <span style={{ fontSize: "1.5rem", fontWeight: 700, color: "#ea580c" }}>CH</span>
-          </div>
-          <h1 style={{ fontSize: "1.875rem", fontWeight: 700, color: "#ffffff", letterSpacing: "-0.025em" }}>Churi House</h1>
-          <p style={{ color: "rgba(255,255,255,0.45)", fontSize: "0.875rem", marginTop: "0.25rem" }}>Restaurant &amp; Franchise Management</p>
+
+          {/* Logo: uploaded image or initials fallback */}
+          {logoUrl ? (
+            <div style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: "4.5rem", height: "4.5rem", borderRadius: "1rem", background: "rgba(234,88,12,0.15)", border: "1px solid rgba(234,88,12,0.3)", marginBottom: "1rem", boxShadow: "0 0 20px rgba(234,88,12,0.3)", overflow: "hidden" }}>
+              <img
+                src={logoUrl}
+                alt={restaurantName}
+                style={{ width: "100%", height: "100%", objectFit: "contain", padding: "0.35rem" }}
+                onError={(e) => {
+                  // If image fails to load, fall back to initials
+                  e.target.style.display = "none";
+                  e.target.parentNode.innerHTML = `<span style="font-size:1.5rem;font-weight:700;color:#ea580c">${restaurantName.slice(0, 2).toUpperCase()}</span>`;
+                }}
+              />
+            </div>
+          ) : (
+            <div style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: "4rem", height: "4rem", borderRadius: "1rem", background: "rgba(234,88,12,0.2)", border: "1px solid rgba(234,88,12,0.3)", marginBottom: "1rem", boxShadow: "0 0 20px rgba(234,88,12,0.3)" }}>
+              <span style={{ fontSize: "1.5rem", fontWeight: 700, color: "#ea580c" }}>
+                {restaurantName.slice(0, 2).toUpperCase()}
+              </span>
+            </div>
+          )}
+
+          <h1 style={{ fontSize: "1.875rem", fontWeight: 700, color: "#ffffff", letterSpacing: "-0.025em" }}>
+            {restaurantName}
+          </h1>
+          <p style={{ color: "rgba(255,255,255,0.45)", fontSize: "0.875rem", marginTop: "0.25rem" }}>
+            {tagline}
+          </p>
         </div>
 
-        {/* Step 1: Credentials */}
+        {/* ── Step 1: Credentials ── */}
         {step === "credentials" && (
           <div style={cardStyle}>
             <p style={labelStyle}>Welcome back</p>
@@ -250,7 +282,7 @@ export default function Login() {
           </div>
         )}
 
-        {/* Step 2: PIN Entry */}
+        {/* ── Step 2: PIN Entry ── */}
         {step === "pin" && (
           <div style={{ ...cardStyle, display: "flex", flexDirection: "column", alignItems: "center", gap: "1.25rem" }}>
             <div style={{ textAlign: "center" }}>
@@ -296,6 +328,7 @@ export default function Login() {
             </button>
           </div>
         )}
+
       </div>
     </div>
   );

@@ -33,6 +33,7 @@ const defaultSettings = (branch) => ({
   gst_number: "",
   fssai_number: "",
   receipt_logo_url: "",
+  receipt_qr_url: "",
   paper_size: "80mm",
   show_gst: true,
   show_discount: true,
@@ -56,7 +57,9 @@ export default function ReceiptSettings() {
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState({});
   const [logoUploading, setLogoUploading] = useState(false);
+  const [qrUploading, setQrUploading] = useState(false);
   const logoInputRef = useRef(null);
+  const qrInputRef = useRef(null);
 
   // Load branches from Branch entity on mount
   useEffect(() => {
@@ -73,8 +76,16 @@ export default function ReceiptSettings() {
   useEffect(() => {
     base44.entities.BranchSettings.list("branch_name", 100)
       .then(existing => {
-        const match = existing.find(r => r.branch_name === selectedBranch);
-        setSettings(match || defaultSettings(selectedBranch));
+        const general = existing.find(r => r.branch_id === "main") || existing[0];
+        const match = existing.find(r => r.branch_name === selectedBranch) || general;
+        const merged = {
+          ...defaultSettings(selectedBranch),
+          ...match,
+          restaurant_name: general?.branch_name || match?.restaurant_name || match?.branch_name || "Churi House",
+          branch_name: general?.branch_label || match?.branch_label || selectedBranch,
+          branch_label: general?.branch_label || match?.branch_label || selectedBranch,
+        };
+        setSettings(merged);
       }).catch(() => setSettings(defaultSettings(selectedBranch)));
   }, [selectedBranch]);
 
@@ -84,6 +95,15 @@ export default function ReceiptSettings() {
     required(next, "receipt_footer", settings.receipt_footer);
     required(next, "phone", settings.phone);
     required(next, "address", settings.address);
+
+    if (settings.gst_number && settings.gst_number.replace(/\s+/g, "").length !== 15) {
+      next.gst_number = "GST number must be 15 characters";
+    }
+
+    if (settings.fssai_number && settings.fssai_number.replace(/\D/g, "").length !== 14) {
+      next.fssai_number = "FSSAI number must be 14 digits";
+    }
+
     setErrors(next);
     return Object.keys(next).length === 0;
   };
@@ -121,6 +141,38 @@ export default function ReceiptSettings() {
       toast.success("Logo uploaded — click Save to apply.");
     };
     reader.onerror = () => { toast.error("Failed to read file."); setLogoUploading(false); };
+    reader.readAsDataURL(file);
+  };
+
+  const handleQrUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 500 * 1024) {
+      toast.error("QR must be under 500KB");
+      return;
+    }
+
+    setQrUploading(true);
+    const reader = new FileReader();
+
+    reader.onload = (ev) => {
+      const dataUrl = typeof ev.target?.result === "string" ? ev.target.result : "";
+      if (dataUrl) {
+        upd("receipt_qr_url", dataUrl);
+        toast.success("QR uploaded — click Save to apply.");
+      } else {
+        toast.error("Failed to read QR file.");
+      }
+      setQrUploading(false);
+      if (e.target) e.target.value = "";
+    };
+
+    reader.onerror = () => {
+      toast.error("Failed to read QR file.");
+      setQrUploading(false);
+      if (e.target) e.target.value = "";
+    };
+
     reader.readAsDataURL(file);
   };
 
@@ -190,13 +242,28 @@ export default function ReceiptSettings() {
             <p className="text-[10px] text-muted-foreground">PNG, JPG or SVG · max 500KB · stored as base64</p>
           </div>
 
-          {/* Logo URL fallback */}
+        
+
+          {/* QR upload */}
           <div className="space-y-1.5">
-            <Label className="text-xs">Or paste Logo URL</Label>
-            <Input value={settings.receipt_logo_url?.startsWith("data:") ? "" : (settings.receipt_logo_url || "")}
-              onChange={e => upd("receipt_logo_url", e.target.value)}
-              placeholder="https://..."
-              className="h-9 bg-white/5 border-white/10 text-sm" />
+            <Label className="text-xs">Receipt QR Code</Label>
+            {settings.receipt_qr_url ? (
+              <div className="relative inline-block">
+                <img src={settings.receipt_qr_url} alt="QR"
+                  className="h-16 w-16 rounded-lg border border-white/10 object-contain bg-white p-1" />
+                <button onClick={() => upd("receipt_qr_url", "")}
+                  className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 flex items-center justify-center">
+                  <X className="w-3 h-3 text-white" />
+                </button>
+              </div>
+            ) : (
+              <button onClick={() => qrInputRef.current?.click()}
+                className="flex items-center gap-2 w-full h-16 rounded-xl border-2 border-dashed border-white/20 hover:border-primary/50 hover:bg-primary/5 transition-all justify-center text-muted-foreground text-xs">
+                {qrUploading ? <span>Uploading...</span> : <><Upload className="w-4 h-4" /> Click to upload QR</>}
+              </button>
+            )}
+            <input ref={qrInputRef} type="file" accept="image/*" className="hidden" onChange={handleQrUpload} />
+            <p className="text-[10px] text-muted-foreground">PNG or JPG · max 500KB · shown on receipt when enabled</p>
           </div>
         </div>
 
@@ -223,11 +290,15 @@ export default function ReceiptSettings() {
             <Label className="text-xs">GST Number</Label>
             <Input
               value={settings.gst_number || ""}
-              onChange={e => upd("gst_number", e.target.value.toUpperCase())}
+              onChange={e => {
+                upd("gst_number", e.target.value.toUpperCase());
+                setErrors(er => ({ ...er, gst_number: "" }));
+              }}
               placeholder="e.g. 36AAACH7409R1ZZ"
               maxLength={15}
-              className="h-9 bg-white/5 border-white/10 text-sm font-mono tracking-wider"
+              className={`h-9 bg-white/5 border-white/10 text-sm font-mono tracking-wider ${fieldError(errors, "gst_number") ? "border-red-500" : ""}`}
             />
+            {fieldError(errors, "gst_number") && <p className="text-xs text-red-400">{fieldError(errors, "gst_number")}</p>}
             <p className="text-[10px] text-muted-foreground">15-character GSTIN</p>
           </div>
 
@@ -236,11 +307,15 @@ export default function ReceiptSettings() {
             <Label className="text-xs">FSSAI License Number</Label>
             <Input
               value={settings.fssai_number || ""}
-              onChange={e => upd("fssai_number", e.target.value.replace(/\D/g, "").slice(0, 14))}
+              onChange={e => {
+                upd("fssai_number", e.target.value.replace(/\D/g, "").slice(0, 14));
+                setErrors(er => ({ ...er, fssai_number: "" }));
+              }}
               placeholder="e.g. 10019022000015"
               maxLength={14}
-              className="h-9 bg-white/5 border-white/10 text-sm font-mono tracking-wider"
+              className={`h-9 bg-white/5 border-white/10 text-sm font-mono tracking-wider ${fieldError(errors, "fssai_number") ? "border-red-500" : ""}`}
             />
+            {fieldError(errors, "fssai_number") && <p className="text-xs text-red-400">{fieldError(errors, "fssai_number")}</p>}
             <p className="text-[10px] text-muted-foreground">14-digit FSSAI number</p>
           </div>
 
@@ -271,7 +346,7 @@ export default function ReceiptSettings() {
               ["show_order_type",     "Show Order Type"],
               ["show_table_number",   "Show Table Number"],
               ["show_payment_method", "Show Payment Method"],
-              ["show_upi_qr",         "Show UPI QR Placeholder"],
+              ["show_upi_qr",         "Show QR on Receipt"],
             ].map(([k, l]) => (
               <div key={k} className="flex items-center justify-between py-2.5 border-b border-white/5">
                 <Label className="text-xs text-foreground">{l}</Label>
