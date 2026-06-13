@@ -33,10 +33,9 @@ import Reservations from './pages/Reservations';
 import OnlineOrders from './pages/OnlineOrders';
 import QROrdering from './pages/QROrdering';
 import DeliveryManagement from './pages/DeliveryManagement';
-
+import AdCreativeBuilder from './pages/AdCreativeBuilder';
 import Vendors from './pages/Vendors';
 import PurchaseOrders from './pages/PurchaseOrders';
-// Analytics merged into Reports
 import Expenses from './pages/Expenses';
 import CashDrawer from './pages/CashDrawer';
 import TaxCompliance from './pages/TaxCompliance';
@@ -83,7 +82,6 @@ const AuthenticatedApp = () => {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>
@@ -104,7 +102,7 @@ const AuthenticatedApp = () => {
           <Route path="/online-orders" element={<OnlineOrders />} />
           <Route path="/qr-ordering" element={<QROrdering />} />
           <Route path="/delivery" element={<DeliveryManagement />} />
-
+          <Route path="/ad-builder" element={<AdCreativeBuilder />} />
           <Route path="/vendors" element={<Vendors />} />
           <Route path="/purchase-orders" element={<PurchaseOrders />} />
 

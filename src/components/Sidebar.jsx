@@ -10,7 +10,7 @@ import {
   CreditCard, FileText, RefreshCw, Users, Clock,
   Store, FileSearch, Plug, Download, UserCog, Shield,
   Settings, LogOut, ChevronDown, Megaphone, DollarSign,
-  GitCompare, Receipt, Sparkles, Layers, Trash2
+  GitCompare, Receipt, Sparkles, Layers, Trash2, Wand2
 } from "lucide-react";
 
 const NAV = [
@@ -47,9 +47,10 @@ const NAV = [
     { label: "Tax & Compliance", icon: FileText, path: "/tax" },
     { label: "Refunds / Voids", icon: RefreshCw, path: "/refunds" },
   ]},
-  { section: "MARKETING", items: [
-    { label: "Advertisements", icon: Megaphone, path: "/advertisements" },
-  ]},
+ { section: "MARKETING", items: [
+  { label: "Advertisements",      icon: Megaphone, path: "/advertisements" },
+  { label: "Ad Creative Builder", icon: Wand2,     path: "/ad-builder" },
+]},
   { section: "STAFF", items: [
     { label: "Staff", icon: Users, path: "/staff" },
     { label: "Attendance & Shifts", icon: Clock, path: "/attendance" },
@@ -72,7 +73,7 @@ const NAV = [
 const ROLE_ACCESS = {
   staff: new Set(["/", "/orders", "/kitchen", "/attendance"]),
   cashier: new Set(["/", "/pos", "/orders", "/kitchen", "/cash-drawer", "/refunds"]),
-  manager: new Set(["/", "/pos", "/orders", "/kitchen", "/menu", "/tables", "/reservations", "/online-orders", "/qr-ordering", "/inventory", "/vendors", "/purchase-orders", "/reports", "/branch-comparison", "/expenses", "/cash-drawer", "/tax", "/refunds", "/advertisements", "/staff", "/attendance", "/recycle-bin"]),
+  manager: new Set(["/", "/pos", "/orders", "/kitchen", "/menu", "/tables", "/reservations", "/online-orders", "/qr-ordering", "/inventory", "/vendors", "/purchase-orders", "/reports", "/branch-comparison", "/expenses", "/cash-drawer", "/tax", "/refunds", "/advertisements", "/ad-builder", "/staff", "/attendance", "/recycle-bin"]),
 };
 
 export default function Sidebar() {
