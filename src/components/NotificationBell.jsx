@@ -28,6 +28,19 @@ export default function NotificationBell() {
     if (open) document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
+  useEffect(() => {
+  load();
+  const interval = setInterval(load, 30_000);
+
+  // Refresh when tab becomes visible again
+  const onVisible = () => { if (document.visibilityState === "visible") load(); };
+  document.addEventListener("visibilitychange", onVisible);
+
+  return () => {
+    clearInterval(interval);
+    document.removeEventListener("visibilitychange", onVisible);
+  };
+}, []);
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
@@ -65,7 +78,7 @@ export default function NotificationBell() {
     <div className="relative" ref={panelRef}>
       {/* Bell button */}
       <button
-        onClick={() => { setOpen(o => !o); if (!open) load(); }}
+        onClick={() => { setOpen(o => !o)}}
         className="relative w-9 h-9 flex items-center justify-center rounded-xl hover:bg-white/10 transition-colors"
       >
         <Bell className="w-5 h-5 text-muted-foreground" />

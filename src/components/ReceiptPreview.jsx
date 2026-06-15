@@ -108,9 +108,7 @@ export default function ReceiptPreview({ settings, order = SAMPLE_ORDER, onClose
               <span className={`px-2 py-0.5 rounded-full font-semibold text-[9px] ${orderTypeColor}`}>
                 {orderTypeLabel}
               </span>
-              {settings?.show_table_number !== false && order.table_number && (
-                <span className="text-gray-500">Table: {order.table_number}</span>
-              )}
+            
               {settings?.show_server_name && order.billed_by && (
                 <span className="text-gray-500 ml-auto">Server: {order.billed_by}</span>
               )}

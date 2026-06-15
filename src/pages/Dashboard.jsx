@@ -244,8 +244,8 @@ export default function Dashboard() {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <StatCard title="Total Orders" value={String(branchOrders.length)} change="" icon={ShoppingCart} onClick={() => navigate("/orders")} />
           <StatCard title="Today's Revenue" value={`₹${todayRevenue.toLocaleString("en-IN")}`} change="" icon={IndianRupee} onClick={() => navigate("/reports")} />
-          <StatCard title="Total Orders Today" value={String(todayOrders.length)} change="" icon={ShoppingCart} onClick={() => navigate("/orders")} />
           <StatCard title="Active Orders" value={String(activeOrders.length)} change="" icon={Clock} onClick={() => navigate("/kitchen")} />
           <StatCard title="Avg Order Value" value={`₹${avgOrderValue.toLocaleString("en-IN")}`} change="" icon={TrendingUp} onClick={() => navigate("/reports")} />
           <StatCard title="Customers Today" value={String(customersToday)} change="" icon={Users} onClick={() => navigate("/orders")} />
