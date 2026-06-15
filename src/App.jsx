@@ -33,7 +33,7 @@ import Reservations from './pages/Reservations';
 import OnlineOrders from './pages/OnlineOrders';
 import QROrdering from './pages/QROrdering';
 import DeliveryManagement from './pages/DeliveryManagement';
-import AdCreativeBuilder from './pages/AdCreativeBuilder';
+import AdCreativeBuilder from './pages/Adcreativebuilder';
 import Vendors from './pages/Vendors';
 import PurchaseOrders from './pages/PurchaseOrders';
 import Expenses from './pages/Expenses';
@@ -105,7 +105,6 @@ const AuthenticatedApp = () => {
           <Route path="/ad-builder" element={<AdCreativeBuilder />} />
           <Route path="/vendors" element={<Vendors />} />
           <Route path="/purchase-orders" element={<PurchaseOrders />} />
-
           <Route path="/expenses" element={<Expenses />} />
           <Route path="/cash-drawer" element={<CashDrawer />} />
           <Route path="/tax" element={<TaxCompliance />} />
