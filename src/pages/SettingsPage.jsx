@@ -8,6 +8,7 @@ import { base44 } from "@/api/base44Client";
 import { toast } from "sonner";
 import { applyTheme } from "@/lib/themeManager";
 import { useTheme } from "@/lib/ThemeContext";
+import { getCurrentUserBranch } from "@/lib/branchFilter";
 import { fieldError, nonNegativeNumber, required } from "@/lib/formValidation";
 
 const TABS = [
@@ -58,7 +59,7 @@ const DEFAULT_SETTINGS = {
 function mapFromEntity(rec) {
   return {
     restaurant_name:     rec.restaurant_name || rec.branch_name || DEFAULT_SETTINGS.restaurant_name,
-    branch_name:         rec.branch_label    || DEFAULT_SETTINGS.branch_name,
+    branch_name:         rec.branch_label    || rec.branch_name || DEFAULT_SETTINGS.branch_name,
     phone:               rec.phone           || DEFAULT_SETTINGS.phone,
     gst_number:          rec.gst_number      || DEFAULT_SETTINGS.gst_number,
     address:             rec.address         || DEFAULT_SETTINGS.address,
@@ -158,6 +159,11 @@ function FileUploadField({ label, accept, currentUrl, onUpload, onRemove, upload
 // ── SettingsPage ──────────────────────────────────────────────────────────────
 export default function SettingsPage() {
   const { isDark, setDark } = useTheme();
+  const { branch: userBranch, isAllBranches } = getCurrentUserBranch();
+  const currentBranchId = (!isAllBranches && userBranch)
+    ? userBranch.toLowerCase().replace(/ /g, "_")
+    : "main";
+
   const [tab, setTab]               = useState("general");
   const [settings, setSettings]     = useState({ ...DEFAULT_SETTINGS });
   const [settingsId, setSettingsId] = useState(null);
@@ -179,22 +185,26 @@ export default function SettingsPage() {
     }
   }, []);
 
-  // ── Load settings from entity — always pick the "main" record ─────────────
+  // ── Load settings from entity for the current branch only ─────────────
   useEffect(() => {
     base44.entities.BranchSettings.list().then(records => {
-      // Always use the record with branch_id === "main"; fall back to first record
-      const main = (records || []).find(r => r.branch_id === "main") || records?.[0];
-      if (main) {
-        setSettingsId(main.id);
-        const mapped = mapFromEntity(main);
+      const all = records || [];
+      const current = all.find(r => r.branch_id === currentBranchId)
+        || all.find(r => r.branch_name === userBranch)
+        || all.find(r => r.branch_id === "main")
+        || all[0];
+      if (current) {
+        setSettingsId(current.id);
+        const mapped = mapFromEntity(current);
         setSettings(s => ({ ...s, ...mapped }));
         if (mapped.favicon_url) applyFavicon(mapped.favicon_url);
-        // Sync logo to localStorage so it survives navigation
         if (mapped.logo_url) localStorage.setItem("branding_logo", mapped.logo_url);
       }
     }).catch(() => {});
-  }, []);
-
+  }, [currentBranchId, userBranch]);
+  useEffect(() => {
+  setSettings(s => ({ ...s, dark_mode: isDark }));
+}, [isDark]);
   const update = (key, val) => {
     setSettings(s => ({ ...s, [key]: val }));
     setErrors(e => ({ ...e, [key]: "" }));
@@ -222,37 +232,16 @@ export default function SettingsPage() {
     return Object.keys(next).length === 0;
   };
 
-  // Sync shared fields to all per-branch ReceiptSettings records
-  const syncToReceiptSettings = async (s) => {
-    try {
-      const existing = await base44.entities.BranchSettings.list("branch_name", 100);
-      for (const rec of existing) {
-        if (rec.branch_id === "main") continue;
-        await base44.entities.BranchSettings.update(rec.id, {
-          tagline:          s.tagline,
-          phone:            s.phone,
-          address:          s.address,
-          gst_number:       s.gst_number,
-          receipt_header:   s.receipt_header,
-          receipt_footer:   s.receipt_footer,
-          logo_url:         s.logo_url,
-          receipt_logo_url: s.logo_url,
-        });
-      }
-    } catch (e) {
-      console.warn("Sync to ReceiptSettings failed (non-fatal):", e);
-    }
-  };
 
   const save = async () => {
     if (!validate()) return;
     setSaving(true);
     try {
       const entityData = {
-        branch_id:           "main",
+        branch_id:           currentBranchId,
         restaurant_name:     settings.restaurant_name,
-        branch_name:         settings.restaurant_name,  // entity field
-        branch_label:        settings.branch_name,      // display label
+        branch_name:         (!isAllBranches && userBranch) ? userBranch : settings.restaurant_name,
+        branch_label:        settings.branch_name,
         receipt_header:      settings.receipt_header,
         receipt_footer:      settings.receipt_footer,
         receipt_logo_url:    settings.logo_url,
@@ -261,7 +250,7 @@ export default function SettingsPage() {
         tagline:             settings.tagline,
         show_gst:            settings.enable_gst,
         theme_color:         settings.theme_color,
-        dark_mode:           settings.dark_mode,
+        dark_mode:           isDark,
         compact_sidebar:     settings.compact_sidebar,
         show_animations:     settings.show_animations,
         show_logo_kds:       settings.show_logo_kds,
@@ -301,8 +290,8 @@ export default function SettingsPage() {
 
       // Persist logo + favicon to localStorage so they survive navigation/refresh
       localStorage.setItem("branding_logo",    settings.logo_url    || "");
-      localStorage.setItem("churi_settings",   JSON.stringify(settings));
-
+      localStorage.setItem("churi_settings", JSON.stringify({ ...settings, dark_mode: isDark }));
+      
       if (settings.favicon_url) {
         applyFavicon(settings.favicon_url);
       } else {
@@ -311,7 +300,6 @@ export default function SettingsPage() {
         if (link) link.href = "/favicon.ico";
       }
 
-      await syncToReceiptSettings(settings);
       toast.success("✅ Settings saved successfully!");
     } catch (err) {
       toast.error("❌ Failed to save: " + (err?.message || "Unknown error"));

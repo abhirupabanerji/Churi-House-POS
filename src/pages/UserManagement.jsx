@@ -7,20 +7,21 @@ import { Label } from "@/components/ui/label";
 import { logAudit } from "@/lib/auditLog";
 import { toast } from "sonner";
 import { fieldError } from "@/lib/formValidation";
-
-const ROLES = ["Super admin", "Admin", "Manager", "Cashier", "Staff"];
+import { ROLES } from "@/lib/rolesConfig";
 
 const roleColor = {
-  super_admin: "bg-red-500/10 text-red-400",
-  admin: "bg-primary/10 text-primary",
-  manager: "bg-purple-500/10 text-purple-400",
-  cashier: "bg-green-500/10 text-green-400",
-  staff: "bg-muted text-muted-foreground",
+  "Super Admin":       "bg-red-500/10 text-red-400",
+  "Franchise Owner":   "bg-primary/10 text-primary",
+  "Branch Manager":    "bg-purple-500/10 text-purple-400",
+  "Cashier":           "bg-green-500/10 text-green-400",
+  "Kitchen Staff":     "bg-yellow-500/10 text-yellow-400",
+  "Inventory Manager": "bg-blue-500/10 text-blue-400",
 };
 
 const emptyForm = {
   full_name: "", username: "", email: "", password: "",
-  role: "cashier", branch_id: "All Branches", franchise: "", status: "active",
+  role: "Cashier",  
+  branch_id: "All Branches", franchise: "", status: "active",
 };
 
 export default function UserManagement() {

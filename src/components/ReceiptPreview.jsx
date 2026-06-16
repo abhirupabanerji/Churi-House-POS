@@ -40,7 +40,7 @@ export default function ReceiptPreview({ settings, order = SAMPLE_ORDER, onClose
   const orderTypeColor = ORDER_TYPE_COLORS[order.type] || "bg-gray-100 text-gray-700";
 
   const restaurantName = settings?.restaurant_name || settings?.restaurantName || settings?.store_name || "";
-  const branchName = settings?.branch_label || settings?.branchLabel || settings?.branch_name_display || settings?.branch_name || "";
+  const branchName = settings?.branch_name ;
   const displayHeader = [restaurantName, branchName].filter(Boolean).join(" — ");
   const header = displayHeader || settings?.receipt_header || "Churi House";
   const subHeader = settings?.receipt_header && settings.receipt_header !== displayHeader && settings.receipt_header !== restaurantName ? settings.receipt_header : "";

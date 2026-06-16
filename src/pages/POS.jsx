@@ -168,30 +168,42 @@ export default function POS() {
     Promise.all([
       base44.entities.BranchSettings.list("branch_name", 100),
       base44.entities.Branch.list("name", 100),
-    ]).then(([settingsData, branchData]) => {
-      // Find exact branch name from Branch entity (case-insensitive match)
-      const matchedBranch = branchData.find(b =>
-        b.name?.toLowerCase() === userBranch?.toLowerCase()
-      );
-      const canonical = matchedBranch?.name || userBranch || branchData[0]?.name || "Main Branch";
-      setCanonicalBranchName(canonical);
+    ])// In POS.jsx, replace the .then(([settingsData, branchData]) => { ... }) block:
 
-      // Find settings using canonical name
-      const match = settingsData.find(r =>
-        r.branch_name?.toLowerCase() === canonical.toLowerCase()
-      ) || settingsData.find(r =>
-        r.branch_name?.toLowerCase() === "main branch"
-      ) || settingsData.find(r => r.branch_id === "main") || settingsData[0];
+.then(([settingsData, branchData]) => {
+  const matchedBranch = branchData.find(b =>
+    b.name?.toLowerCase() === userBranch?.toLowerCase()
+  );
+  const canonical = matchedBranch?.name || userBranch || branchData[0]?.name || "Main Branch";
+  setCanonicalBranchName(canonical);
 
-      if (match) {
-        setBranchSettings({
-          ...match,
-          restaurant_name: match.restaurant_name || match.branch_name || "Churi House",
-          branch_name: canonical,
-          branch_label: match.branch_label || canonical,
-        });
-      }
-    }).catch(() => {});
+  // ── Pull from localStorage (saved by Settings page) ──
+  const localSettings = (() => {
+    try { return JSON.parse(localStorage.getItem("churi_settings") || "{}"); } catch { return {}; }
+  })();
+
+  const match = settingsData.find(r =>
+    r.branch_name?.toLowerCase() === canonical.toLowerCase()
+  ) || settingsData.find(r =>
+    r.branch_name?.toLowerCase() === "main branch"
+  ) || settingsData.find(r => r.branch_id === "main") || settingsData[0];
+
+  // ── Merge: localStorage wins for fields the Settings page controls ──
+  setBranchSettings({
+    ...(match || {}),
+    restaurant_name: localSettings.restaurant_name || match?.restaurant_name || "Churi House",
+    branch_name: localSettings.branch_name || canonical,   // ← THIS was the bug
+    address:     localSettings.address     || match?.address || "",
+    phone:       localSettings.phone       || match?.phone || "",
+    gst_number:  localSettings.gst_number  || match?.gst_number || "",
+    fssai_number:localSettings.fssai_number|| match?.fssai_number || "",
+    tagline:     localSettings.tagline     || match?.tagline || "",
+    receipt_footer: localSettings.receipt_footer || match?.receipt_footer || "Thank you!",
+    receipt_logo_url: localSettings.receipt_logo_url || match?.receipt_logo_url || "",
+    receipt_qr_url:   localSettings.receipt_qr_url  || match?.receipt_qr_url  || "",
+    upi_id:      localSettings.upi_id      || match?.upi_id || "",
+  });
+}).catch(() => {});
   }, []);
 
   const customCats = loadCustomCategories();
