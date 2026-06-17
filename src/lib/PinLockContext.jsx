@@ -7,7 +7,9 @@ const PinLockContext = createContext(null);
 function getCurrentUserPin() {
   const session = getSession();
   if (!session?.username) return null;
-  return localStorage.getItem(`app_pin_${session.username}`) || null;
+  const pin = localStorage.getItem(`app_pin_${session.username}`);
+  // Strictly validate — must be exactly 4 digits, never empty string
+  return (pin && /^\d{4}$/.test(pin)) ? pin : null;
 }
 
 export function PinLockProvider({ children }) {
@@ -16,8 +18,9 @@ export function PinLockProvider({ children }) {
   const idleTimer = useRef(null);
 
   const resetIdle = useCallback(() => {
-    if (!getCurrentUserPin()) return;
     clearTimeout(idleTimer.current);
+    // Only start idle timer if user actually has a valid PIN set
+    if (!getCurrentUserPin()) return;
     idleTimer.current = setTimeout(() => {
       setLockedPath(window.location.pathname);
       setIsLocked(true);
@@ -50,7 +53,10 @@ export function PinLockProvider({ children }) {
 
   const verifyPin = (entered) => {
     const stored = getCurrentUserPin();
-    return !!(stored && entered === stored);
+    // Fail closed — if no valid PIN is stored, never unlock via PIN entry
+    if (!stored) return false;
+    if (!entered || entered.length !== 4) return false;
+    return entered === stored;
   };
 
   return (

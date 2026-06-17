@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Delete } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { usePinLock } from "@/lib/PinLockContext";
@@ -13,31 +13,43 @@ export default function AppPinOverlay() {
   const [blocked, setBlocked] = useState(false);
   const logoUrl = localStorage.getItem("branding_logo") || "";
 
-  useEffect(() => {
-    if (pin.length !== 4) return;
-    if (verifyPin(pin)) {
+  const checkPin = useCallback((entered) => {
+    if (entered.length !== 4) return;
+
+    if (verifyPin(entered)) {
       setError("");
+      setPin("");
       logAudit("App unlocked via PIN", "App PIN unlock", "auth");
       unlock();
       if (lockedPath && lockedPath !== window.location.pathname) {
         navigate(lockedPath);
       }
     } else {
-      const next = attempts + 1;
-      setAttempts(next);
-      setPin("");
-      if (next >= 5) {
-        setBlocked(true);
-        setError("Too many failed attempts. Contact admin.");
-        logAudit("App PIN — 5 failed attempts", "5 failed PIN attempts", "auth");
-      } else {
-        setError(`Wrong PIN. ${5 - next} attempt(s) remaining.`);
-      }
+      setPin(""); // clear immediately on wrong PIN
+      setAttempts(prev => {
+        const next = prev + 1;
+        if (next >= 5) {
+          setBlocked(true);
+          setError("Too many failed attempts. Contact admin.");
+          logAudit("App PIN — 5 failed attempts", "5 failed PIN attempts", "auth");
+        } else {
+          setError(`Wrong PIN. ${5 - next} attempt(s) remaining.`);
+        }
+        return next;
+      });
     }
-  }, [pin]);
+  }, [verifyPin, unlock, lockedPath, navigate]);
+
+  // Only trigger when we have exactly 4 digits
+  useEffect(() => {
+    if (pin.length === 4 && !blocked) {
+      checkPin(pin);
+    }
+  }, [pin, blocked, checkPin]);
 
   const handleKey = (k) => {
     if (blocked || pin.length >= 4) return;
+    setError("");
     setPin(p => p + k);
   };
 
@@ -60,7 +72,9 @@ export default function AppPinOverlay() {
           <div
             key={i}
             className={`w-4 h-4 rounded-full border-2 transition-all duration-150 ${
-              pin.length > i ? "bg-primary border-primary" : "bg-transparent border-muted-foreground/40"
+              pin.length > i
+                ? "bg-primary border-primary"
+                : "bg-transparent border-muted-foreground/40"
             }`}
           />
         ))}
@@ -73,11 +87,14 @@ export default function AppPinOverlay() {
           <button
             key={i}
             disabled={blocked || k === ""}
-            onClick={() =>
-              k === "⌫"
-                ? setPin(p => p.slice(0, -1))
-                : k !== "" && handleKey(String(k))
-            }
+            onClick={() => {
+              if (k === "⌫") {
+                setPin(p => p.slice(0, -1));
+                setError("");
+              } else if (k !== "") {
+                handleKey(String(k));
+              }
+            }}
             className={`w-16 h-16 rounded-2xl text-lg font-semibold transition-all duration-150 ${
               k === ""
                 ? "invisible"
