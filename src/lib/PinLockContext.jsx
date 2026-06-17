@@ -2,30 +2,76 @@ import { createContext, useContext, useState, useEffect, useCallback, useRef } f
 import { getSession } from "@/lib/restaurantAuth";
 
 const IDLE_MS = 5 * 60 * 1000;
+const LOCK_KEY = "app_pin_lock_state"; // persisted across refresh
 const PinLockContext = createContext(null);
 
 function getCurrentUserPin() {
   const session = getSession();
   if (!session?.username) return null;
   const pin = localStorage.getItem(`app_pin_${session.username}`);
-  // Strictly validate — must be exactly 4 digits, never empty string
   return (pin && /^\d{4}$/.test(pin)) ? pin : null;
 }
 
+// ── Persisted lock state helpers ───────────────────────────────────────────
+function readPersistedLock() {
+  try {
+    const raw = localStorage.getItem(LOCK_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && parsed.locked === true) return parsed;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function writePersistedLock(locked, path) {
+  try {
+    if (locked) {
+      localStorage.setItem(LOCK_KEY, JSON.stringify({ locked: true, path: path || window.location.pathname }));
+    } else {
+      localStorage.removeItem(LOCK_KEY);
+    }
+  } catch {}
+}
+
 export function PinLockProvider({ children }) {
-  const [isLocked, setIsLocked] = useState(false);
-  const [lockedPath, setLockedPath] = useState(null);
+  // Initialize synchronously from localStorage — so a refresh while locked
+  // stays locked on the very first render, instead of flashing unlocked.
+  const [isLocked, setIsLocked] = useState(() => {
+    const persisted = readPersistedLock();
+    // Only honor a persisted lock if the user still has a valid PIN configured.
+    // (Covers edge case: PIN removed by admin while app was locked.)
+    return !!(persisted && getCurrentUserPin());
+  });
+  const [lockedPath, setLockedPath] = useState(() => {
+    const persisted = readPersistedLock();
+    return persisted?.path || null;
+  });
   const idleTimer = useRef(null);
+
+  // If we booted locked but the user has no valid PIN anymore, clear it.
+  useEffect(() => {
+    if (isLocked && !getCurrentUserPin()) {
+      setIsLocked(false);
+      setLockedPath(null);
+      writePersistedLock(false);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const resetIdle = useCallback(() => {
     clearTimeout(idleTimer.current);
-    // Only start idle timer if user actually has a valid PIN set
     if (!getCurrentUserPin()) return;
+    // Don't reset/restart the idle timer while already locked —
+    // otherwise background events could keep pushing the timer out.
+    if (isLocked) return;
     idleTimer.current = setTimeout(() => {
-      setLockedPath(window.location.pathname);
+      const path = window.location.pathname;
+      setLockedPath(path);
       setIsLocked(true);
+      writePersistedLock(true, path);
     }, IDLE_MS);
-  }, []);
+  }, [isLocked]);
 
   useEffect(() => {
     const events = ["mousemove", "keydown", "mousedown", "touchstart", "scroll"];
@@ -41,19 +87,22 @@ export function PinLockProvider({ children }) {
 
   const lock = () => {
     if (getCurrentUserPin()) {
-      setLockedPath(window.location.pathname);
+      const path = window.location.pathname;
+      setLockedPath(path);
       setIsLocked(true);
+      writePersistedLock(true, path);
     }
   };
 
   const unlock = () => {
     setIsLocked(false);
+    setLockedPath(null);
+    writePersistedLock(false);
     resetIdle();
   };
 
   const verifyPin = (entered) => {
     const stored = getCurrentUserPin();
-    // Fail closed — if no valid PIN is stored, never unlock via PIN entry
     if (!stored) return false;
     if (!entered || entered.length !== 4) return false;
     return entered === stored;
